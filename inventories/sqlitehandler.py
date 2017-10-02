@@ -132,9 +132,12 @@ class Store:
         self.insertcollection(path, name, format)
 
     def collection_exists(self, path, name):
-        x = self.openDB.execute('SELECT * FROM ' + COLLECTION_LIST_TABLE_NAME + ' WHERE path=":path" and name=":name"', {'path':path, 'name':name}).fetchall()
+        x = self.openDB.execute('SELECT * FROM ' + COLLECTION_LIST_TABLE_NAME + ' WHERE path=:path and name=:name', {'path':path, 'name':name}).fetchall()
         print('COLLECTION', x)
         return bool(len(x))
+
+    def get_collection_by_name(self, name):
+        return bool(len(self.openDB.execute('SELECT * FROM ' + COLLECTION_LIST_TABLE_NAME + ' WHERE name=:name', {'name':name}).fetchall()))
 
     def insertcollection(self, path, name, format=None):
         '''
@@ -173,19 +176,27 @@ class Store:
             reVal.extend(t)
         return reVal
 
+    def load_collection(self, name):
+        cur = self.openDB.execute('select * from '+MTG_CARDS_TABLE_NAME+', '+name+' WHERE '+name+'.id='+MTG_CARDS_TABLE_NAME+'.id;')
+        return self.get_all_cards(cur)
+
     def get_table_items(self, tablename):
-        cur = self.openDB.cursor()
-        cur.execute('select * from '+tablename)
-        return self.get_all_cards(cur.fetchall())
+        if self.get_collection_by_name(tablename):
+            return self.load_collection(tablename)
+        else:
+            cur = self.openDB.cursor()
+            cur.execute('select * from '+tablename)
+            return self.get_all_cards(cur)
+        return []
 
     def get_collection_information(self):
         return self.openDB.cursor().execute('select * from '+COLLECTION_LIST_TABLE_NAME).fetchall()
 
-    def result_to_dict(self, result):
+    def result_to_dict(self, result, columns=MTG_CARDS_KEY_ORDER):
         re = {}
         c = 0
         while c < len(result): #I really need to fix this mess....I hate this
-            key = MTG_CARDS_KEY_ORDER[c]
+            key = columns[c]
             val = result[c]
             if val == 'NULL':
                 re[key] = None
@@ -204,13 +215,14 @@ class Store:
             c += 1
         return re
 
-    def getcard(self, result):
-        return CardItem(self.result_to_dict(result))
+    def getcard(self, result, columns=MTG_CARDS_KEY_ORDER):
+        return CardItem(self.result_to_dict(result, columns))
 
-    def get_all_cards(self, results):
+    def get_all_cards(self, cursor):
         re = []
-        for c in results:
-            re.append(self.getcard(c))
+        col = [d[0] for d in cursor.description]
+        for c in cursor.fetchall():
+            re.append(self.getcard(c, col))
         return re
 
     def listvalues(self, card): #I think there's at least one bug here with variations
@@ -231,7 +243,7 @@ class Store:
                         'original_text', 'original_type', 'source', 'variations', 'image_url', 'set', 'set_name',
                         'id', 'foreign_names']:
                 reLst.append(str(v))
-            elif k in ['cmc', 'loyalty']:
+            elif k in ['cmc', 'loyalty', 'quantity']:
                 reLst.append(int(v))
             else: #If we get this fair then whelp you're on your own
                 raise KeyError('Unknown key '+k)
@@ -262,16 +274,15 @@ class Store:
     def getcards(self, table=MTG_CARDS_TABLE_NAME, **kwargs):
         cur = self.openDB.cursor()
         cur.execute('select * from '+table+' where '+self.wherestatement(**kwargs))
-        return self.get_all_cards(cur.fetchall())
+        return self.get_all_cards(cur)
 
     def get_cards_exact(self, table=MTG_CARDS_TABLE_NAME, **kwargs):
         cur = self.openDB.cursor()
         reStr = []
         for k, v in kwargs.items():
             reStr.append('"' + k + '" = "' + v + '"')
-        print('select * from '+table+' where '+' and '.join(reStr)+' ; ')
         cur.execute('select * from '+table+' where '+' and '.join(reStr)+' ; ')
-        return self.get_all_cards(cur.fetchall())
+        return self.get_all_cards(cur)
 
     def query_all_cards(self, queries):
         '''
@@ -309,10 +320,17 @@ class Store:
         queries = {}
         cards = []
         res = readtcgplayercsv(csvfile)
+        totals = {}
         for r in res:
             allc = self.get_cards_exact(name=r['Name'], set_name=r['Set'])
+
             if len(allc):
+                print('GOT THIS MANY ', len(allc), r['Name'], r['Set'])
                 cards += allc
+                try:
+                    totals[allc[0].id].quantity += 1
+                except KeyError:
+                    totals[allc[0].id] = allc[0]
             else:
                 try:
                     queries[r['Set']].append(r['Name'])
@@ -325,6 +343,10 @@ class Store:
                 allc = self.get_cards_exact(name=cn, set_name=k)
                 if len(allc):
                     cards += allc
+                    try:
+                        totals[allc[0].id].quantity += 1
+                    except KeyError:
+                        totals[allc[0].id] = allc[0]
                 else:
                     pass
                     #try:
@@ -332,7 +354,7 @@ class Store:
                     #except KeyError:
                         #queries[k] = cn
         print('RETURNING LEN ', len(cards), 'QUERIES LEN ', len(queries.keys()))
-        return cards
+        return list(totals.values())
         #return wheres.where(name='|'.join(names), set='|'.join(sets)).all()
 
     def __get_dbfile(self):

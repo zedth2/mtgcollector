@@ -33,4 +33,4 @@ class CardDetails(QtWidgets.QWidget):
         self.lblCard.setPixmap(QtGui.QPixmap(img))
         #self.lblCard.setText(self.card.name)
         text = self.card.text if self.card.text else ''
-        self.docText.setPlainText(text + '\n' + img)
+        self.docText.setPlainText(text + '\n' + img + '\n\n' + 'Quanity ' + str(card.quantity))

@@ -145,12 +145,15 @@ class MTGCollections(QtWidgets.QWidget):
             path = self.databaseinfo.get_path(self.databaseinfo.model.itemFromIndex(modelindex))
             if self.loadtmp(path):
                 return
-            try:
-                self.gal.model.addcards(self.databaseinfo.store.get_table_items(self.databaseinfo.model.itemFromIndex(modelindex).text()))
-            except Exception as ex:
-                print('EXCEPTION ', ex)
+            #try:
+            text = self.databaseinfo.model.itemFromIndex(modelindex).text()
+            print('TEXT ', text)
+            self.gal.model.addcards(self.databaseinfo.store.get_table_items(text))
+            #except Exception as ex:
+                #print('EXCEPTION ', ex)
 
     def loadtmp(self, path):
+        print('HERE ', path)
         if path.startswith('tmp/'):
             if path.split('/')[-1] in self.tmps:
                 self.gal.model.threadcardadds(self.tmps[path.split('/')[-1]])
