@@ -99,3 +99,7 @@ ENV/
 
 # mypy
 .mypy_cache/
+#The extension of the usual SQLite DB file
+*.mtg
+
+media/cardimgs/
