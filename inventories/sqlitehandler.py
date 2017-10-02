@@ -268,7 +268,7 @@ class Store:
         cur = self.openDB.cursor()
         reStr = []
         for k, v in kwargs.items():
-            reStr.append('"' + k + '=' + v + '"')
+            reStr.append('"' + k + '" = "' + v + '"')
         print('select * from '+table+' where '+' and '.join(reStr)+' ; ')
         cur.execute('select * from '+table+' where '+' and '.join(reStr)+' ; ')
         return self.get_all_cards(cur.fetchall())
@@ -326,10 +326,11 @@ class Store:
                 if len(allc):
                     cards += allc
                 else:
-                    try:
-                        queries[k].append(cn)
-                    except KeyError:
-                        queries[k] = cn
+                    pass
+                    #try:
+                        #queries[k].append(cn)
+                    #except KeyError:
+                        #queries[k] = cn
         print('RETURNING LEN ', len(cards), 'QUERIES LEN ', len(queries.keys()))
         return cards
         #return wheres.where(name='|'.join(names), set='|'.join(sets)).all()
