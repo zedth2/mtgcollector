@@ -10,7 +10,9 @@ Author : Zachary Harvey
 '''
 
 from datetime import datetime
-from .mtgdbhandler import MTGSETS_KEYS
+from .sqlments import MTGSETS_KEYS, MTGSETS_PRIMARY
+import json
+
 class Card:
     def __init__(self):
         self.id = None
@@ -86,14 +88,18 @@ class Set:
         reStr = []
         for k in keys:
             if self[k] is None:
+                if k == MTGSETS_PRIMARY:
+                    raise ValueError('Primary key is None')
                 reStr.append(self[k])
-            if k in ('code', 'name', 'block', 'border', 'gatherer_code'):
+            elif k in ('code', 'name', 'block', 'border', 'gatherer_code'):
                 reStr.append(str(self[k]))
             elif k in ('release_date',):
                 if isinstance(self[k], datetime):
                     reStr.append(self[k].timestamp())
             elif k in ('booster',):
-                reStr.append(','.join(self[k]))
+                reStr.append(json.dumps({k:self[k]}))
+            elif k in ('online_only',):
+                reStr.append(self[k])
             else: #I think the first if will take care of this
                 raise ValueError('Failure to find key ' + k)
         return tuple(reStr)
@@ -116,6 +122,8 @@ class Set:
                 reSet[keys[cnt]] = datetime.fromtimestamp(values[cnt])
             elif keys[cnt] in ('booster',):
                 reSet[keys[cnt]] = values[cnt].split(',')
+            elif keys[cnt] in ('online_only',):
+                reSet[keys[cnt]] = values[cnt]
             else: #I think the first if will take care of this
                 raise ValueError('Failure to find key ' + k)
         return reSet
