@@ -75,7 +75,6 @@ CREATE TABLE mtgcards
                 "legalities" TEXT,
                 "image_url" TEXT,
                 "language" TEXT,
-                "game_format" TEXT
                 )
 
 CREATE TABLE mtgsets
@@ -83,8 +82,9 @@ CREATE TABLE mtgsets
                 "code" TEXT PRIMARY KEY,
                 "name" TEXT,
                 "block" TEXT,
+                "border" TEXT,
                 "gatherer_code" TEXT,
-                "release_date" TEXT,
+                "release_date" REAL, --Seconds since epoch
                 "expansion" TEXT,
                 "booster" TEXT
                 )
@@ -103,3 +103,10 @@ CREATE TABLE deck
                 "count" INTEGER,
                 "board" BOOLEAN
                 )
+
+CREATE TABLE userbuilds
+        ("unqkey" INTEGER PRIMARY KEY AUTOINCREMENT,
+        "path" TEXT, --The path of the collection so if name was elves under deck pauper the path would be, deck/pauper/elves
+        "name" TEXT, --The name of the collection
+        "format" TEXT, --The format the collection is legal in, this will only really do anything under decks.
+        "type" TEXT) --Should be either deck or collection
