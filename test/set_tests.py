@@ -39,7 +39,7 @@ def store():
     return store
 
 def test_has_tables(store):
-    assert [mtgdbhandler.MTGSETS_TABLE_NAME] == store.gettables()
+    assert [mtgdbhandler.MTGSETS_TABLE_NAME, mtgdbhandler.MTGCARDS_TABLE_NAME] == store.gettables()
 
 
 def test_add_all_sets(store):
@@ -58,7 +58,14 @@ def test_find_sets(store):
 
 def test_get_add_card(store):
     x = mtgsdk.Card.where(name='Shoe Tree').all()
-    inventories.Card.from_MTG_SDK(x[0])
+    c = inventories.Card.from_MTG_SDK(x[0])
+    assert '600df87fcdd54ae4c1fafdb32d9c695142d54a4c' == c.id
+    #print(c.name, c.set_code, c.collectors_number, c.multiverse_id, c.id)
+
+def test_insert_single_card(store):
+    x = mtgsdk.Card.where(name='Shoe Tree').all()
+    c = inventories.Card.from_MTG_SDK(x[0])
+    store.insert_cards([c])
 
 def get_a_set():
     import mtgsdk

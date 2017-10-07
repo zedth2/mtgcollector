@@ -8,7 +8,7 @@ Author : Zachary Harvey
 
 
 '''
-
+from hashlib import sha1
 from datetime import datetime
 from .sqlments import MTGSETS_KEYS_TYPES, MTGSETS_PRIMARY, MTGCARDS_KEYS_TYPES, CONVERSION_TO_Py, CONVERSION_TO_SQL, MTGCARDS_PRIMARY
 import json
@@ -52,10 +52,11 @@ class _Base:
 
 class Card(_Base):
     def __init__(self):
-        self.id = None
+        #self.id = None
         self.multiverse_id = None
         self.collectors_number = None
         self.name = None
+        self.set_code = None
         self.color = None
         self.mana_cost = None
         self.cmc = None
@@ -80,6 +81,12 @@ class Card(_Base):
     def get_db_values(self):
         return super().get_db_values(MTGCARDS_KEYS_TYPES, MTGCARDS_PRIMARY)
 
+    @property
+    def id(self):
+        if self.multiverse_id is None and self.number is None:
+            raise ValueError('Must contain at least a number or a multiverse_id')
+        return sha1((self.name + self.set_code + str(self.multiverse_id) + str(self.collectors_number)).encode()).hexdigest()
+
     @staticmethod
     def from_db_values(values):
         return _Base.from_db_values(Card, values, MTGCARDS_KEYS_TYPES)
@@ -90,6 +97,7 @@ class Card(_Base):
         reCard.multiverse_id = card.multiverse_id
         reCard.collectors_number = card.number
         reCard.name = card.name
+        reCard.set_code = card.set
         reCard.color = card.colors
         reCard.mana_cost = card.mana_cost
         reCard.cmc = card.cmc

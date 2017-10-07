@@ -33,7 +33,7 @@ class MTGDatabaseHandler:
         self.open_file(dbfile)
         cur = self.openDB.cursor()
         cur.execute(MTGSETS_SQL)
-        #cur.execute(MTGCARDS_SQL)
+        cur.execute(MTGCARDS_SQL)
         self.openDB.commit()
 
     def close_db_no_error(self):
@@ -91,6 +91,14 @@ class MTGDatabaseHandler:
         inserts = [s.get_db_values() for s in sets]
         cursor = self.openDB.cursor()
         cursor.executemany('INSERT INTO ' + MTGSETS_TABLE_NAME + ' VALUES ('+', '.join(['?']*len(MTGSETS_KEYS_TYPES.keys())) + ');', inserts)
+        self.openDB.commit()
+
+    def insert_cards(self, cards):
+        if not isinstance(cards, (tuple, list)):
+            cards = [cards]
+        inserts = [c.get_db_values() for c in cards]
+        cursor = self.openDB.cursor()
+        cursor.executemany('INSERT INTO ' + MTGCARDS_TABLE_NAME + ' VALUES (' + ', '.join(['?']*len(MTGCARDS_KEYS_TYPES.keys())) + ');', inserts)
         self.openDB.commit()
 
 if __name__ == '__main__':
