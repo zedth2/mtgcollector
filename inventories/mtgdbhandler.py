@@ -52,7 +52,7 @@ class MTGDatabaseHandler:
     def find_set_by_exact(self, **kwargs):
         sets = []
         wheres = []
-        for k, v in kwargs:
+        for k, v in kwargs.items():
             wheres.append('"' + k + '" = "' + v + '"')
         statement = 'SELECT * FROM '+MTGSETS_TABLE_NAME + ' WHERE ' + ' and '.join(wheres) + '; '
         for vals in self.openDB.execute(statement).fetchall():

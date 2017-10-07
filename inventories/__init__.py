@@ -83,6 +83,7 @@ class Set:
         self.gatherer_code = None
         self.release_date = None
         self.booster = None
+        self.online_only = None
 
     def get_db_values(self, keys=MTGSETS_KEYS):
         reStr = []
@@ -107,13 +108,18 @@ class Set:
     def __getitem__(self, key):
         return getattr(self, key)
 
+    def __setitem__(self, key, val):
+        if not hasattr(self, key):
+            raise KeyError('No key by name of '+key)
+        setattr(self, key, val)
+
     @staticmethod
     def from_db_values(self, values, keys=MTGSETS_KEYS):
         if len(keys) != len(values):
             raise ValueError('Keys and values must be of the same length')
         reSet = Set()
         cnt = 0
-        while cnt < len(k):
+        while cnt < len(keys):
             if values[cnt] is None:
                 reSet[keys[cnt]] = values[cnt]
             if keys[cnt] in ('code', 'name', 'block', 'border', 'gatherer_code'):
@@ -126,6 +132,7 @@ class Set:
                 reSet[keys[cnt]] = values[cnt]
             else: #I think the first if will take care of this
                 raise ValueError('Failure to find key ' + k)
+            cnt += 1
         return reSet
 
     @staticmethod

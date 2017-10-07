@@ -58,6 +58,11 @@ def test_add_all_sets(store):
 
     store.insert_sets(all_sets)
 
+def test_find_set_exact(store):
+    s = store.find_set_by_exact(code='UNH')
+    assert len(s) == 1
+    assert s[0].name == 'Unhinged'
+
 #set_tester = SetTest()
 
 #def test_mtgsdk_conversion(self):
