@@ -59,7 +59,7 @@ class MTGDatabaseHandler:
     def get_items(self, cursor, item_type, keys):
         sets = []
         for vals in cursor.fetchall():
-            sets.append(item_type.from_db_values(keys, vals))
+            sets.append(item_type.from_db_values(vals))
         return sets
 
     def wherestatement(self, **kwargs):
@@ -88,7 +88,7 @@ class MTGDatabaseHandler:
     def insert_sets(self, sets):
         if not isinstance(sets, (tuple, list)):
             sets = [sets]
-        inserts = [s.get_db_values(MTGSETS_KEYS_TYPES) for s in sets]
+        inserts = [s.get_db_values() for s in sets]
         cursor = self.openDB.cursor()
         cursor.executemany('INSERT INTO ' + MTGSETS_TABLE_NAME + ' VALUES ('+', '.join(['?']*len(MTGSETS_KEYS_TYPES.keys())) + ');', inserts)
         self.openDB.commit()

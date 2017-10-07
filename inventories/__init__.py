@@ -10,10 +10,68 @@ Author : Zachary Harvey
 '''
 
 from datetime import datetime
-from .sqlments import MTGSETS_KEYS_TYPES, MTGSETS_PRIMARY, MTGCARDS_KEYS_TYPES, CONVERSION_TO_Py, CONVERSION_TO_SQL
+from .sqlments import MTGSETS_KEYS_TYPES, MTGSETS_PRIMARY, MTGCARDS_KEYS_TYPES, CONVERSION_TO_Py, CONVERSION_TO_SQL, MTGCARDS_PRIMARY
 import json
 
-class Card:
+class _Base:
+    def __getitem__(self, key):
+        return getattr(self, key)
+
+    def __setitem__(self, key, val):
+        if not hasattr(self, key):
+            raise KeyError('No key by name of '+key)
+        setattr(self, key, val)
+
+    def get_db_values(self, keytypes, primarykey):
+        reStr = []
+        keys = tuple(keytypes.keys())
+        for k in keys:
+            if self[k] is None:
+                if k == primarykey:
+                    raise ValueError('Primary key is None')
+                reStr.append(self[k])
+            else:
+                reStr.append(CONVERSION_TO_SQL[keytypes[k]](k, self[k]))
+            #elif k in ('code', 'name', 'block', 'border', 'gatherer_code'):
+                #reStr.append(str(self[k]))
+            #elif k in ('release_date',):
+                #if isinstance(self[k], datetime):
+                    #reStr.append(self[k].timestamp())
+            #elif k in ('booster',):
+                #reStr.append(json.dumps({k:self[k]}))
+            #elif k in ('online_only',):
+                #reStr.append(self[k])
+            #else: #I think the first if will take care of this
+                #raise ValueError('Failure to find key ' + k)
+        return tuple(reStr)
+
+    @staticmethod
+    def from_db_values(reType, values, keytypes):
+        keys = list(keytypes.keys())
+        if len(keys) != len(values):
+            raise ValueError('Keys and values must be of the same length')
+        reSet = reType()
+        cnt = 0
+        while cnt < len(keys):
+            if values[cnt] is None:
+                reSet[keys[cnt]] = values[cnt]
+            else:
+                reSet[keys[cnt]] = CONVERSION_TO_Py[keytypes[keys[cnt]]](keys[cnt], values[cnt])
+            #elif keys[cnt] in ('code', 'name', 'block', 'border', 'gatherer_code'):
+                #reSet[keys[cnt]] = str(values[cnt])
+            #elif keys[cnt] in ('release_date',):
+                #reSet[keys[cnt]] = datetime.fromtimestamp(values[cnt])
+            #elif keys[cnt] in ('booster',):
+                #reSet[keys[cnt]] = values[cnt].split(',')
+            #elif keys[cnt] in ('online_only',):
+                #reSet[keys[cnt]] = values[cnt]
+            #else: #I think the first if will take care of this
+                #raise ValueError('Failure to find key ' + k)
+            cnt += 1
+        return reSet
+
+
+class Card(_Base):
     def __init__(self):
         self.id = None
         self.multiverse_id = None
@@ -40,24 +98,12 @@ class Card:
         self.image_url = None
         self.language = None
 
-    def __getitem__(self, key):
-        return getattr(self, key)
-
-    def __setitem__(self, key, val):
-        if not hasattr(self, key):
-            raise KeyError('No key by name of '+key)
-        setattr(self, key, val)
+    def get_db_values(self):
+        return super().get_db_values(MTGCARDS_KEYS_TYPES, MTGCARDS_PRIMARY)
 
     @staticmethod
-    def from_db_values(self, values, keys=MTGCARDS_KEYS_TYPES):
-        if len(keys) != len(values):
-            raise ValueError('Keys and values must be of the same length')
-        card = Card()
-        cnt = 0
-        while cnt < len(keys):
-            if values[cnt] is None:
-                card[keys[cnt]] = values[cnt]
-            #elif keys[cnt] in ('id', 'collectors_number', 'name', 'set_code', 'colors',
+    def from_db_values(values):
+        return _Base.from_db_values(Card, values, MTGCARDS_KEYS_TYPES)
 
     @staticmethod
     def from_MTG_SDK(card):
@@ -86,7 +132,7 @@ class Card:
         self.language = card.language
 
 
-class Set:
+class Set(_Base):
     def __init__(self):
         self.code = None
         self.name = None
@@ -97,61 +143,12 @@ class Set:
         self.booster = None
         self.online_only = None
 
-    def get_db_values(self, keytypes=MTGSETS_KEYS_TYPES):
-        reStr = []
-        keys = tuple(keytypes.keys())
-        for k in keys:
-            if self[k] is None:
-                if k == MTGSETS_PRIMARY:
-                    raise ValueError('Primary key is None')
-                reStr.append(self[k])
-            else:
-                reStr.append(CONVERSION_TO_SQL[keytypes[k]](k, self[k]))
-            #elif k in ('code', 'name', 'block', 'border', 'gatherer_code'):
-                #reStr.append(str(self[k]))
-            #elif k in ('release_date',):
-                #if isinstance(self[k], datetime):
-                    #reStr.append(self[k].timestamp())
-            #elif k in ('booster',):
-                #reStr.append(json.dumps({k:self[k]}))
-            #elif k in ('online_only',):
-                #reStr.append(self[k])
-            #else: #I think the first if will take care of this
-                #raise ValueError('Failure to find key ' + k)
-        return tuple(reStr)
-
-    def __getitem__(self, key):
-        return getattr(self, key)
-
-    def __setitem__(self, key, val):
-        if not hasattr(self, key):
-            raise KeyError('No key by name of '+key)
-        setattr(self, key, val)
+    def get_db_values(self):
+        return super().get_db_values(MTGSETS_KEYS_TYPES, MTGSETS_PRIMARY)
 
     @staticmethod
-    def from_db_values(self, values, keytypes=MTGSETS_KEYS_TYPES):
-        keys = list(keytypes.keys())
-        if len(keys) != len(values):
-            raise ValueError('Keys and values must be of the same length')
-        reSet = Set()
-        cnt = 0
-        while cnt < len(keys):
-            if values[cnt] is None:
-                reSet[keys[cnt]] = values[cnt]
-            else:
-                reSet[keys[cnt]] = CONVERSION_TO_Py[keytypes[keys[cnt]]](keys[cnt], values[cnt])
-            #elif keys[cnt] in ('code', 'name', 'block', 'border', 'gatherer_code'):
-                #reSet[keys[cnt]] = str(values[cnt])
-            #elif keys[cnt] in ('release_date',):
-                #reSet[keys[cnt]] = datetime.fromtimestamp(values[cnt])
-            #elif keys[cnt] in ('booster',):
-                #reSet[keys[cnt]] = values[cnt].split(',')
-            #elif keys[cnt] in ('online_only',):
-                #reSet[keys[cnt]] = values[cnt]
-            #else: #I think the first if will take care of this
-                #raise ValueError('Failure to find key ' + k)
-            cnt += 1
-        return reSet
+    def from_db_values(values):
+        return _Base.from_db_values(Set, values, MTGSETS_KEYS_TYPES)
 
     @staticmethod
     def from_MTG_SDK(one_set):

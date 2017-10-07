@@ -58,7 +58,7 @@ MTGCARDS_KEYS_TYPES = OrderedDict([
                 ("legalities", 'json' ),
                 ("image_url", 'str' ),
                 ("language", 'str' )])
-
+MTGCARDS_PRIMARY = tuple(MTGCARDS_KEYS_TYPES.keys())[0]
 MTGCARDS_SQL = '''CREATE TABLE ''' + MTGCARDS_TABLE_NAME + '''
                 (
                 "id" TEXT PRIMARY KEY, --A hash being sha1(card_name, set_name, multiverse_id, collectors_number)
