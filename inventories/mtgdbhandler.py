@@ -33,7 +33,7 @@ class MTGDatabaseHandler:
         self.open_file(dbfile)
         cur = self.openDB.cursor()
         cur.execute(MTGSETS_SQL)
-        cur.execute(MTGCARDS_SQL)
+        #cur.execute(MTGCARDS_SQL)
         self.openDB.commit()
 
     def close_db_no_error(self):
@@ -74,10 +74,10 @@ class MTGDatabaseHandler:
         return self.get_items(cur.execute('select * from ' + table + ' where ' + self.wherestatement(**kwargs)), item_type, keys)
 
     def find_sets_by_like(self, **kwargs):
-        return self.find_by_like(MTGSETS_TABLE_NAME, MTGSETS_KEYS, Set, **kwargs)
+        return self.find_by_like(MTGSETS_TABLE_NAME, MTGSETS_KEYS_TYPES, Set, **kwargs)
 
     def find_sets_exact(self, **kwargs):
-        return self.find_by_exact(MTGSETS_TABLE_NAME, MTGSETS_KEYS, Set, **kwargs)
+        return self.find_by_exact(MTGSETS_TABLE_NAME, MTGSETS_KEYS_TYPES, Set, **kwargs)
 
     def find_cards_by_like(self, **kwargs):
         return self.find_by_like(MTGCARDS_TABLE_NAME, MTGCARDS_KEYS, Card, **kwargs)
@@ -88,9 +88,9 @@ class MTGDatabaseHandler:
     def insert_sets(self, sets):
         if not isinstance(sets, (tuple, list)):
             sets = [sets]
-        inserts = [s.get_db_values(MTGSETS_KEYS) for s in sets]
+        inserts = [s.get_db_values(MTGSETS_KEYS_TYPES) for s in sets]
         cursor = self.openDB.cursor()
-        cursor.executemany('INSERT INTO ' + MTGSETS_TABLE_NAME + ' VALUES ('+', '.join(['?']*len(MTGSETS_KEYS)) + ');', inserts)
+        cursor.executemany('INSERT INTO ' + MTGSETS_TABLE_NAME + ' VALUES ('+', '.join(['?']*len(MTGSETS_KEYS_TYPES.keys())) + ');', inserts)
         self.openDB.commit()
 
 if __name__ == '__main__':

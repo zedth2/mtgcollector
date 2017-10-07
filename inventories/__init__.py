@@ -10,7 +10,7 @@ Author : Zachary Harvey
 '''
 
 from datetime import datetime
-from .sqlments import MTGSETS_KEYS, MTGSETS_PRIMARY
+from .sqlments import MTGSETS_KEYS_TYPES, MTGSETS_PRIMARY, MTGCARDS_KEYS_TYPES, CONVERSION_TO_Py, CONVERSION_TO_SQL
 import json
 
 class Card:
@@ -49,8 +49,15 @@ class Card:
         setattr(self, key, val)
 
     @staticmethod
-    def from_db_values(self, keys, values):
-        pass
+    def from_db_values(self, values, keys=MTGCARDS_KEYS_TYPES):
+        if len(keys) != len(values):
+            raise ValueError('Keys and values must be of the same length')
+        card = Card()
+        cnt = 0
+        while cnt < len(keys):
+            if values[cnt] is None:
+                card[keys[cnt]] = values[cnt]
+            #elif keys[cnt] in ('id', 'collectors_number', 'name', 'set_code', 'colors',
 
     @staticmethod
     def from_MTG_SDK(card):
@@ -90,24 +97,27 @@ class Set:
         self.booster = None
         self.online_only = None
 
-    def get_db_values(self, keys=MTGSETS_KEYS):
+    def get_db_values(self, keytypes=MTGSETS_KEYS_TYPES):
         reStr = []
+        keys = tuple(keytypes.keys())
         for k in keys:
             if self[k] is None:
                 if k == MTGSETS_PRIMARY:
                     raise ValueError('Primary key is None')
                 reStr.append(self[k])
-            elif k in ('code', 'name', 'block', 'border', 'gatherer_code'):
-                reStr.append(str(self[k]))
-            elif k in ('release_date',):
-                if isinstance(self[k], datetime):
-                    reStr.append(self[k].timestamp())
-            elif k in ('booster',):
-                reStr.append(json.dumps({k:self[k]}))
-            elif k in ('online_only',):
-                reStr.append(self[k])
-            else: #I think the first if will take care of this
-                raise ValueError('Failure to find key ' + k)
+            else:
+                reStr.append(CONVERSION_TO_SQL[keytypes[k]](k, self[k]))
+            #elif k in ('code', 'name', 'block', 'border', 'gatherer_code'):
+                #reStr.append(str(self[k]))
+            #elif k in ('release_date',):
+                #if isinstance(self[k], datetime):
+                    #reStr.append(self[k].timestamp())
+            #elif k in ('booster',):
+                #reStr.append(json.dumps({k:self[k]}))
+            #elif k in ('online_only',):
+                #reStr.append(self[k])
+            #else: #I think the first if will take care of this
+                #raise ValueError('Failure to find key ' + k)
         return tuple(reStr)
 
     def __getitem__(self, key):
@@ -119,7 +129,8 @@ class Set:
         setattr(self, key, val)
 
     @staticmethod
-    def from_db_values(self, values, keys=MTGSETS_KEYS):
+    def from_db_values(self, values, keytypes=MTGSETS_KEYS_TYPES):
+        keys = list(keytypes.keys())
         if len(keys) != len(values):
             raise ValueError('Keys and values must be of the same length')
         reSet = Set()
@@ -127,16 +138,18 @@ class Set:
         while cnt < len(keys):
             if values[cnt] is None:
                 reSet[keys[cnt]] = values[cnt]
-            elif keys[cnt] in ('code', 'name', 'block', 'border', 'gatherer_code'):
-                reSet[keys[cnt]] = str(values[cnt])
-            elif keys[cnt] in ('release_date',):
-                reSet[keys[cnt]] = datetime.fromtimestamp(values[cnt])
-            elif keys[cnt] in ('booster',):
-                reSet[keys[cnt]] = values[cnt].split(',')
-            elif keys[cnt] in ('online_only',):
-                reSet[keys[cnt]] = values[cnt]
-            else: #I think the first if will take care of this
-                raise ValueError('Failure to find key ' + k)
+            else:
+                reSet[keys[cnt]] = CONVERSION_TO_Py[keytypes[keys[cnt]]](keys[cnt], values[cnt])
+            #elif keys[cnt] in ('code', 'name', 'block', 'border', 'gatherer_code'):
+                #reSet[keys[cnt]] = str(values[cnt])
+            #elif keys[cnt] in ('release_date',):
+                #reSet[keys[cnt]] = datetime.fromtimestamp(values[cnt])
+            #elif keys[cnt] in ('booster',):
+                #reSet[keys[cnt]] = values[cnt].split(',')
+            #elif keys[cnt] in ('online_only',):
+                #reSet[keys[cnt]] = values[cnt]
+            #else: #I think the first if will take care of this
+                #raise ValueError('Failure to find key ' + k)
             cnt += 1
         return reSet
 

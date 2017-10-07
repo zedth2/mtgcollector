@@ -16,16 +16,16 @@ from collections import OrderedDict
 CONVERSION_TO_Py = {'str': lambda k, v: str(v),
                     'epoch': lambda k, v: datetime.fromtimestamp(v),
                     'csv' : lambda k, v: v.split(','),
-                    'json' : lambda k, v: json.loads(v)[k],
+                    'json' : lambda k, v: loads(v)[k],
                     'bool' : lambda k, v: bool(v),
                     'int' : lambda k, v: int(v),
                     'real' : lambda k, v: float(v),
                    }
 
 CONVERSION_TO_SQL = {'str': lambda k, v: str(v),
-                    'epoch': lambda k, v: datetime.totimestamp(v),
+                    'epoch': lambda k, v: datetime.timestamp(v),
                     'csv' : lambda k, v: ','.join(v),
-                    'json' : lambda k, v: json.dumps({k:v}),
+                    'json' : lambda k, v: dumps({k:v}),
                     'bool' : lambda k, v: v,
                     'int' : lambda k, v: v,
                     'real' : lambda k, v: v,
@@ -102,10 +102,7 @@ MTGSETS_KEYS_TYPES = OrderedDict([
                     ("booster", 'json' ),
                     ("online_only", 'bool' )])
 
-MTGSETS_DATATYPES = {'str': ('code', 'name', 'block', 'border', 'gatherer_code'),
-                    'epoch':('release_date',),
-                    'csv': None,
-MTGSETS_PRIMARY = MTGSETS_KEYS[0]
+MTGSETS_PRIMARY = tuple(MTGSETS_KEYS_TYPES.keys())[0]
 MTGSETS_SQL = '''CREATE TABLE ''' + MTGSETS_TABLE_NAME + '''
                 (
                 "code" TEXT PRIMARY KEY,
