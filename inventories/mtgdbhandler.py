@@ -33,7 +33,7 @@ class MTGDatabaseHandler:
         self.open_file(dbfile)
         cur = self.openDB.cursor()
         cur.execute(MTGSETS_SQL)
-        #cur.execute(MTGCARDS_SQL)
+        cur.execute(MTGCARDS_SQL)
         self.openDB.commit()
 
     def close_db_no_error(self):
