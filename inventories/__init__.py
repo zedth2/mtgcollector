@@ -32,17 +32,6 @@ class _Base:
                 reStr.append(self[k])
             else:
                 reStr.append(CONVERSION_TO_SQL[keytypes[k]](k, self[k]))
-            #elif k in ('code', 'name', 'block', 'border', 'gatherer_code'):
-                #reStr.append(str(self[k]))
-            #elif k in ('release_date',):
-                #if isinstance(self[k], datetime):
-                    #reStr.append(self[k].timestamp())
-            #elif k in ('booster',):
-                #reStr.append(json.dumps({k:self[k]}))
-            #elif k in ('online_only',):
-                #reStr.append(self[k])
-            #else: #I think the first if will take care of this
-                #raise ValueError('Failure to find key ' + k)
         return tuple(reStr)
 
     @staticmethod
@@ -57,16 +46,6 @@ class _Base:
                 reSet[keys[cnt]] = values[cnt]
             else:
                 reSet[keys[cnt]] = CONVERSION_TO_Py[keytypes[keys[cnt]]](keys[cnt], values[cnt])
-            #elif keys[cnt] in ('code', 'name', 'block', 'border', 'gatherer_code'):
-                #reSet[keys[cnt]] = str(values[cnt])
-            #elif keys[cnt] in ('release_date',):
-                #reSet[keys[cnt]] = datetime.fromtimestamp(values[cnt])
-            #elif keys[cnt] in ('booster',):
-                #reSet[keys[cnt]] = values[cnt].split(',')
-            #elif keys[cnt] in ('online_only',):
-                #reSet[keys[cnt]] = values[cnt]
-            #else: #I think the first if will take care of this
-                #raise ValueError('Failure to find key ' + k)
             cnt += 1
         return reSet
 
@@ -107,30 +86,31 @@ class Card(_Base):
 
     @staticmethod
     def from_MTG_SDK(card):
-        self.multiverse_id = card.multiverse_id
-        self.collectors_number = card.number
-        self.name = card.name
-        self.color = card.colors
-        self.mana_cost = card.mana_cost
-        self.cmc = card.cmc
-        self.rarity = card.rarity
-        self.power = card.power
-        self.toughness = card.toughness
-        self.loyalty = card.loyalty
-        self.flavor_text = card.flavor
-        self.type_line = card.type
-        self.oracle_text = card.text
-        self.artist = card.artist
-        self.layout = card.layout
-        self.types = card.types
-        self.subtypes = card.subtypes
-        self.supertypes = card.supertypes
-        self.foreign_names = card.foreign_names
-        self.rulings = card.rulings
-        self.legalities = card.legalities
-        self.image_url = card.image_url
-        self.language = card.language
-
+        reCard = Card()
+        reCard.multiverse_id = card.multiverse_id
+        reCard.collectors_number = card.number
+        reCard.name = card.name
+        reCard.color = card.colors
+        reCard.mana_cost = card.mana_cost
+        reCard.cmc = card.cmc
+        reCard.rarity = card.rarity
+        reCard.power = card.power
+        reCard.toughness = card.toughness
+        reCard.loyalty = card.loyalty
+        reCard.flavor_text = card.flavor
+        reCard.type_line = card.type
+        reCard.oracle_text = card.text
+        reCard.artist = card.artist
+        reCard.layout = card.layout
+        reCard.types = card.types
+        reCard.subtypes = card.subtypes
+        reCard.supertypes = card.supertypes
+        reCard.foreign_names = card.foreign_names
+        reCard.rulings = card.rulings
+        reCard.legalities = card.legalities
+        reCard.image_url = card.image_url
+        #reCard.language = card.language
+        return reCard
 
 class Set(_Base):
     def __init__(self):

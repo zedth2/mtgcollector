@@ -56,6 +56,9 @@ def test_find_sets(store):
     s = store.find_sets_by_like(name='Un')
     assert len(s) == 5 #I was expect to only get Unglued and Unhinged but that where statement doesn't work the way I thought it would
 
+def test_get_add_card(store):
+    x = mtgsdk.Card.where(name='Shoe Tree').all()
+    inventories.Card.from_MTG_SDK(x[0])
 
 def get_a_set():
     import mtgsdk

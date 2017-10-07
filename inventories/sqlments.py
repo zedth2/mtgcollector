@@ -56,8 +56,8 @@ MTGCARDS_KEYS_TYPES = OrderedDict([
                 ("foreign_names", 'json' ),
                 ("rulings", 'json' ),
                 ("legalities", 'json' ),
-                ("image_url", 'str' ),
-                ("language", 'str' )])
+                ("image_url", 'str' )])
+                #("language", 'str' )])
 MTGCARDS_PRIMARY = tuple(MTGCARDS_KEYS_TYPES.keys())[0]
 MTGCARDS_SQL = '''CREATE TABLE ''' + MTGCARDS_TABLE_NAME + '''
                 (
@@ -85,7 +85,7 @@ MTGCARDS_SQL = '''CREATE TABLE ''' + MTGCARDS_TABLE_NAME + '''
                 "rulings" TEXT,
                 "legalities" TEXT,
                 "image_url" TEXT,
-                "language" TEXT,
+                --"language" TEXT,
                 FOREIGN KEY("set_code") REFERENCES mtgsets("code")
                 )
 '''
