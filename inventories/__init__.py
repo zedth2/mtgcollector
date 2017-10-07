@@ -43,6 +43,11 @@ class Card:
     def __getitem__(self, key):
         return getattr(self, key)
 
+    def __setitem__(self, key, val):
+        if not hasattr(self, key):
+            raise KeyError('No key by name of '+key)
+        setattr(self, key, val)
+
     @staticmethod
     def from_db_values(self, keys, values):
         pass
@@ -122,7 +127,7 @@ class Set:
         while cnt < len(keys):
             if values[cnt] is None:
                 reSet[keys[cnt]] = values[cnt]
-            if keys[cnt] in ('code', 'name', 'block', 'border', 'gatherer_code'):
+            elif keys[cnt] in ('code', 'name', 'block', 'border', 'gatherer_code'):
                 reSet[keys[cnt]] = str(values[cnt])
             elif keys[cnt] in ('release_date',):
                 reSet[keys[cnt]] = datetime.fromtimestamp(values[cnt])
