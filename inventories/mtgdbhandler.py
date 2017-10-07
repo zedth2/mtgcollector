@@ -64,8 +64,9 @@ class MTGDatabaseHandler:
             sets = [sets]
         inserts = [s.get_db_values(MTGSETS_KEYS) for s in sets]
         cursor = self.openDB.cursor()
-        cursor.execute('INSERT INTO ' + MTGSETS_TABLE_NAME + ' VALUES ('+', '.join(['?']*len(MTGSETS_KEYS)) + ');', inserts[0])
+        cursor.executemany('INSERT INTO ' + MTGSETS_TABLE_NAME + ' VALUES ('+', '.join(['?']*len(MTGSETS_KEYS)) + ');', inserts)
         self.openDB.commit()
+
 
 if __name__ == '__main__':
     store = MTGDatabaseHandler()
