@@ -38,7 +38,7 @@ class TableModel(QtGui.QStandardItemModel):
         #self.appendColumn(i[1])
 
     def addrootitems(self):
-        i = [QtGui.QStandardItem('Collections'), QtGui.QStandardItem('Decks'), QtGui.QStandardItem('Qube')]
+        i = [QtGui.QStandardItem('Collections'), QtGui.QStandardItem('Decks'), QtGui.QStandardItem('Qube'), QtGui.QStandardItem('Sets')]
         c = 0
         while c < len(i):
             self.appendRow([i[c]])

@@ -58,10 +58,10 @@ MTGCARDS_KEYS_TYPES = OrderedDict([
                 ("legalities", 'json' ),
                 ("image_url", 'str' )])
                 #("language", 'str' )])
-MTGCARDS_PRIMARY = tuple(MTGCARDS_KEYS_TYPES.keys())[0]
+MTGCARDS_PRIMARY = tuple(MTGCARDS_KEYS_TYPES.keys())[0] #--A hash being sha1(card_name, set_name, multiverse_id, collectors_number)
 MTGCARDS_SQL = '''CREATE TABLE ''' + MTGCARDS_TABLE_NAME + '''
                 (
-                "id" TEXT PRIMARY KEY, --A hash being sha1(card_name, set_name, multiverse_id, collectors_number)
+                "id" TEXT PRIMARY KEY,
                 "multiverse_id" INTEGER,
                 "collectors_number" TEXT,
                 "name" TEXT,
@@ -85,7 +85,6 @@ MTGCARDS_SQL = '''CREATE TABLE ''' + MTGCARDS_TABLE_NAME + '''
                 "rulings" TEXT,
                 "legalities" TEXT,
                 "image_url" TEXT,
-                --"language" TEXT,
                 FOREIGN KEY("set_code") REFERENCES mtgsets("code")
                 )
 '''
@@ -117,7 +116,39 @@ MTGSETS_SQL = '''CREATE TABLE ''' + MTGSETS_TABLE_NAME + '''
 '''
 
 MTG_USERBUILD_TABLE_NAME = 'userbuilds'
-MTG_USERBUILD_KEYS = ('unqkey', 'path', 'name', 'format', 'type')
+#MTG_USERBUILD_KEYS = ('unqkey', 'path', 'name', 'format', 'type')
+MTG_USERBUILD_KEYS_TYPES = OrderedDict([
+                            ('unqkey', 'int'),
+                            ('path', 'str'),
+                            ('name', 'str'),
+                            ('format', 'str'),
+                            ('type', 'str')])
+
+MTG_USERBUILD_SQL = '''CREATE TABLE ''' + MTG_USERBUILD_TABLE_NAME + '''
+        ("unqkey" INTEGER PRIMARY KEY AUTOINCREMENT,
+        "path" TEXT, --The path of the collection so if name was elves under deck pauper the path would be, deck/pauper/elves
+        "name" TEXT, --The name of the collection
+        "format" TEXT, --The format the collection is legal in, this will only really do anything under decks.
+        "type" TEXT) --Should be either deck or collection'''
+
 
 COLLECTION_KEYS = ('id', 'count')
 DECK_KEYS = ('id', 'count', 'board')
+
+
+def collection_sql(tablename):
+    return '''CREATE TABLE {}
+                (
+                "id" TEXT PRIMARY KEY,
+                "count" INTEGER,
+                FOREIGN KEY("id") REFERENCES {}("id")
+                )'''.format(tablename, MTGCARDS_TABLE_NAME)
+
+def deck_sql(tablename):
+    return '''CREATE TABLE {}
+                (
+                "id" TEXT PRIMARY KEY,
+                "count" INTEGER,
+                "board" BOOLEAN,
+                FOREIGN KEY("id") REFERENCES {}("id")
+                )'''.format(tablename, MTGCARDS_TABLE_NAME)

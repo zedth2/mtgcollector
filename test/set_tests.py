@@ -39,8 +39,7 @@ def store():
     return store
 
 def test_has_tables(store):
-    assert [mtgdbhandler.MTGSETS_TABLE_NAME, mtgdbhandler.MTGCARDS_TABLE_NAME] == store.gettables()
-
+    assert [mtgdbhandler.MTGSETS_TABLE_NAME, mtgdbhandler.MTGCARDS_TABLE_NAME, mtgdbhandler.MTG_USERBUILD_TABLE_NAME, 'sqlite_sequence'] == store.gettables()
 
 def test_add_all_sets(store):
     all_sets = mtgsdkreader.all_sets()
@@ -62,10 +61,30 @@ def test_get_add_card(store):
     assert '600df87fcdd54ae4c1fafdb32d9c695142d54a4c' == c.id
     #print(c.name, c.set_code, c.collectors_number, c.multiverse_id, c.id)
 
+
 def test_insert_single_card(store):
     x = mtgsdk.Card.where(name='Shoe Tree').all()
     c = inventories.Card.from_MTG_SDK(x[0])
     store.insert_cards([c])
+
+@pytest.mark.skip
+def test_insert_many_cards(store):
+    store.insert_cards([inventories.Card.from_MTG_SDK(c) for c in mtgsdk.Card.where(set_name='"Unglued"').all()])
+
+def test_query_and_insert(store):
+    store.find_cards_exact_to_external(name='Bad Ass')
+
+def test_find_card(store):
+    c = store.find_cards_exact(id='ffe01dd0fa385d6b0ced59e70d850619dff3c150')
+    assert 'ffe01dd0fa385d6b0ced59e70d850619dff3c150' == c[0].id
+
+def test_find_card_name(store):
+    c = store.find_cards_exact(name='Shoe Tree')
+    assert '600df87fcdd54ae4c1fafdb32d9c695142d54a4c' == c[0].id and c[0].name == 'Shoe Tree'
+
+def test_add_collection(store):
+    cols = store.create_collection('TESTER', 'here/there')
+    assert 1 == len(cols)
 
 def get_a_set():
     import mtgsdk

@@ -13,6 +13,30 @@ from datetime import datetime
 from .sqlments import MTGSETS_KEYS_TYPES, MTGSETS_PRIMARY, MTGCARDS_KEYS_TYPES, CONVERSION_TO_Py, CONVERSION_TO_SQL, MTGCARDS_PRIMARY
 import json
 
+
+class Collection:
+    def __init__(self, name, path, unqkey=None):
+        self.name = name
+        self.path = path
+        self.cards = []
+
+    @property
+    def unqkey(self):
+        return self.__unqkey
+
+    @staticmethod
+    def from_db_values(values):
+        return Collection(values[2], values[1], values[0])
+
+class Deck(Collection):
+    def __init__(self, name, path, format='kitchen', unqkey=None):
+        super().__init__(name, path, unqkey)
+        self.format = format
+
+    @staticmethod
+    def from_db_values(values):
+        return Deck(values[2], values[1], values[3], values[0])
+
 class _Base:
     def __getitem__(self, key):
         return getattr(self, key)
@@ -27,6 +51,7 @@ class _Base:
         keys = tuple(keytypes.keys())
         for k in keys:
             if self[k] is None:
+                if k == 'id': reStr.append(self.create_id())
                 if k == primarykey:
                     raise ValueError('Primary key is None')
                 reStr.append(self[k])
@@ -52,7 +77,7 @@ class _Base:
 
 class Card(_Base):
     def __init__(self):
-        #self.id = None
+        self.__id = None
         self.multiverse_id = None
         self.collectors_number = None
         self.name = None
@@ -81,15 +106,31 @@ class Card(_Base):
     def get_db_values(self):
         return super().get_db_values(MTGCARDS_KEYS_TYPES, MTGCARDS_PRIMARY)
 
-    @property
-    def id(self):
-        if self.multiverse_id is None and self.number is None:
-            raise ValueError('Must contain at least a number or a multiverse_id')
-        return sha1((self.name + self.set_code + str(self.multiverse_id) + str(self.collectors_number)).encode()).hexdigest()
+    def create_id(self):
+        collect_num = ''
+        multi_id = ''
+        if self.multiverse_id is None and self.collectors_number is None:
+            raise ValueError('Must contain at least a collectors_number or a multiverse_id ' + str(self.name) + ' ' + str(self.set_code)) #This Stops the loading from_db_values
+            #return self.__id
+        if self.multiverse_id is not None:
+            multi_id = str(self.multiverse_id)
+        if self.collectors_number is not None:
+            collect_num = str(self.collectors_number)
+        return sha1((self.name + self.set_code + multi_id + collect_num).encode()).hexdigest()
+
+    def _getId(self):
+        return self.__id
+
+    def _setId(self, newVal):
+        self.__id = str(newVal)
+    id = property(_getId, _setId)
 
     @staticmethod
     def from_db_values(values):
-        return _Base.from_db_values(Card, values, MTGCARDS_KEYS_TYPES)
+        card = _Base.from_db_values(Card, values, MTGCARDS_KEYS_TYPES)
+        if None == card.id:
+            card.id = card.create_id()
+        return card
 
     @staticmethod
     def from_MTG_SDK(card):
@@ -117,6 +158,7 @@ class Card(_Base):
         reCard.rulings = card.rulings
         reCard.legalities = card.legalities
         reCard.image_url = card.image_url
+        reCard.id = reCard.create_id()
         #reCard.language = card.language
         return reCard
 

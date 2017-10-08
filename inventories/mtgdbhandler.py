@@ -11,8 +11,9 @@ Author : Zachary Harvey
 
 import sqlite3 as sql
 from datetime import datetime
-from . import Set, Card
+from . import Set, Card, Collection, Deck
 from .sqlments import *
+from .externalapis.mtgsdkreader import where_card, where_set
 
 class MTGDatabaseHandler:
     def __init__(self):
@@ -34,6 +35,7 @@ class MTGDatabaseHandler:
         cur = self.openDB.cursor()
         cur.execute(MTGSETS_SQL)
         cur.execute(MTGCARDS_SQL)
+        cur.execute(MTG_USERBUILD_SQL)
         self.openDB.commit()
 
     def close_db_no_error(self):
@@ -80,10 +82,10 @@ class MTGDatabaseHandler:
         return self.find_by_exact(MTGSETS_TABLE_NAME, MTGSETS_KEYS_TYPES, Set, **kwargs)
 
     def find_cards_by_like(self, **kwargs):
-        return self.find_by_like(MTGCARDS_TABLE_NAME, MTGCARDS_KEYS, Card, **kwargs)
+        return self.find_by_like(MTGCARDS_TABLE_NAME, MTGCARDS_KEYS_TYPES, Card, **kwargs)
 
     def find_cards_exact(self, **kwargs):
-        return self.find_by_exact(MTGCARDS_TABLE_NAME, MTGCARDS_KEYS, Card, **kwargs)
+        return self.find_by_exact(MTGCARDS_TABLE_NAME, MTGCARDS_KEYS_TYPES, Card, **kwargs)
 
     def insert_sets(self, sets):
         if not isinstance(sets, (tuple, list)):
@@ -99,6 +101,55 @@ class MTGDatabaseHandler:
         inserts = [c.get_db_values() for c in cards]
         cursor = self.openDB.cursor()
         cursor.executemany('INSERT INTO ' + MTGCARDS_TABLE_NAME + ' VALUES (' + ', '.join(['?']*len(MTGCARDS_KEYS_TYPES.keys())) + ');', inserts)
+        self.openDB.commit()
+
+    def find_cards_by_like_to_external(self, **kwargs):
+        '''
+        This is only going to work for single items. The or of `|` won't find anything in the local
+        sqlite DB.
+        '''
+        cards = self.find_cards_by_like(**kwargs)
+        if 0 == len(cards):
+            cards = where_card(**kwargs)
+            self.insert_cards(cards)
+        return self.find_cards_by_like(**kwargs)
+
+    def find_cards_exact_to_external(self, **kwargs):
+        '''
+        This is only going to work for single items. The or of `|` won't find anything in the local
+        sqlite DB.
+        '''
+        cards = self.find_cards_exact(**kwargs)
+        if 0 == len(cards):
+            cards = where_card(**kwargs)
+            self.insert_cards(cards)
+        return self.find_cards_exact(**kwargs)
+
+    def create_collection(self, name, path):
+        cursor = self.openDB.cursor()
+        cursor.execute('INSERT INTO ' + MTG_USERBUILD_TABLE_NAME + ' VALUES (' + ', '.join(['?']*len(MTG_USERBUILD_KEYS_TYPES.keys())) + ');', (None, path, name, None, 'COLLECTION'))
+        cursor.execute(collection_sql(name))
+        self.openDB.commit()
+        return self.get_collection(name, path)
+
+    def get_collection(self, name, path):
+        cursor = self.openDB.cursor()
+        cols = cursor.execute('SELECT * FROM ' + MTG_USERBUILD_TABLE_NAME + ' WHERE "name" = :name AND "path" = :path AND "type" = :collection', {"name":name, "path": path, "collection":'COLLECTION'}).fetchall()
+        reCol = []
+        for c in cols:
+            reCol.append(Collection.from_db_values(c))
+        return reCol
+
+    def create_deck(self, name, path):
+        cursor = self.openDB.cursor()
+        cursor.execute('INSERT INTO ' + MTG_USERBUILD_TABLE_NAME + ' VALUES (' + ', '.join(['?']*len(MTG_USERBUILD_KEYS_TYPES.keys())) + ');', (None, path, name, 'kitchen', 'DECK'))
+        cursor.execute(deck_sql(name))
+        self.openDB.commit()
+
+    def create_qube(self, name, path):
+        cursor = self.openDB.cursor()
+        cursor.execute('INSERT INTO ' + MTG_USERBUILD_TABLE_NAME + ' VALUES (' + ', '.join(['?']*len(MTG_USERBUILD_KEYS_TYPES.keys())) + ');', (None, path, name, None, 'QUBE'))
+        cursor.execute(deck_sql(name))
         self.openDB.commit()
 
 if __name__ == '__main__':
