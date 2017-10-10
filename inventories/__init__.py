@@ -13,7 +13,7 @@ from datetime import datetime
 from .sqlments import MTGSETS_KEYS_TYPES, MTGSETS_PRIMARY, MTGCARDS_KEYS_TYPES, CONVERSION_TO_Py, CONVERSION_TO_SQL, MTGCARDS_PRIMARY
 import json
 
-
+SCRYFALL_COLORS = {'U':'Blue','B':'Black', 'G':'Green', 'W':'White', 'R':'Red'}
 class Collection:
     def __init__(self, name, path, unqkey=None):
         self.name = name
@@ -102,6 +102,7 @@ class Card(_Base):
         self.legalities = None
         self.image_url = None
         self.language = None
+        self.count = 0
 
     def get_db_values(self):
         return super().get_db_values(MTGCARDS_KEYS_TYPES, MTGCARDS_PRIMARY)
@@ -158,6 +159,36 @@ class Card(_Base):
         reCard.rulings = card.rulings
         reCard.legalities = card.legalities
         reCard.image_url = card.image_url
+        reCard.id = reCard.create_id()
+        #reCard.language = card.language
+        return reCard
+
+    @staticmethod
+    def from_scryfall(scrydict):
+        reCard = Card()
+        reCard.multiverse_id = scrydict.get('multiverse_id', None)
+        reCard.collectors_number = scrydict.get('collector_number', None)
+        reCard.name = scrydict.get('name', None)
+        reCard.set_code = scrydict.get('set', None)
+        reCard.color = [SCRYFALL_COLORS[c] for c in scrydict['colors']]
+        reCard.mana_cost = scrydict.get('mana_cost', None)
+        reCard.cmc = scrydict['cmc']
+        reCard.rarity = scrydict['rarity']
+        reCard.power = scrydict['power']
+        reCard.toughness = scrydict['toughness']
+        reCard.loyalty = scrydict.get('loyalty', None)
+        reCard.flavor_text = scrydict['flavor_text']
+        reCard.type_line = scrydict['type_line']
+        reCard.oracle_text = scrydict['oracle_text']
+        reCard.artist = scrydict['artist']
+        reCard.layout = scrydict['layout']
+        #reCard.types = scrydict.types #I'm hoping to create these from the type line property
+        #reCard.subtypes = scrydict.subtypes
+        #reCard.supertypes = scrydict.supertypes
+        #reCard.foreign_names = None
+        #reCard.rulings = scrydict.rulings
+        reCard.legalities = scrydict['legalities']
+        reCard.image_url = scrydict['image_uri']
         reCard.id = reCard.create_id()
         #reCard.language = card.language
         return reCard

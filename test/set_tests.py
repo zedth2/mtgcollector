@@ -16,6 +16,9 @@ import mtgsdk
 import inventories
 from inventories import mtgdbhandler
 from inventories.externalapis import mtgsdkreader
+from inventories.externalapis import scryfalldealer
+from inventories import Card
+from utils.csvhandlers import tcgplayer_csv_to_cards
 
 store = None
 DB_TEST_FILE = './test/test.mtg'
@@ -86,8 +89,24 @@ def test_add_collection(store):
     cols = store.create_collection('TESTER', 'here/there')
     assert 1 == len(cols)
 
+@pytest.mark.skip
+def test_tcgplayer_csv_reads(store):
+    cards = tcgplayer_csv_to_cards('./test/pauper.csv')
+    suc, fails = store.find_cards_from_cards_external(cards)
+    assert 0 == len(fails)
+
+def test_scryfall():
+    c = Card()
+    c.name = "Bog Imp"
+    cards = scryfalldealer.find_cards_by_name([c])
+    print(cards)
+
 def get_a_set():
     import mtgsdk
     mtgsdk_dict = {'code': 'UNH', 'name': 'Unhinged', 'type': 'un', 'border': 'silver', 'mkm_id': 59, 'mkm_name': 'Unhinged', 'release_date': '2004-11-20', 'gatherer_code': None, 'magic_cards_info_code': 'uh', 'booster': ['rare', 'uncommon', 'uncommon', 'uncommon', 'common', 'common', 'common', 'common', 'common', 'common', 'common', 'common', 'common', 'common', 'land'], 'old_code': None, 'block': None, 'online_only': None}
     s = mtgsdk.Set(mtgsdk_dict)
     return Set.from_MTG_SDK(s)
+
+if __name__ == '__main__':
+    #test_tcgplayer_csv_reads(store())
+    test_scryfall()

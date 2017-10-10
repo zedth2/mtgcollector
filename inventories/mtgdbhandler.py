@@ -13,7 +13,7 @@ import sqlite3 as sql
 from datetime import datetime
 from . import Set, Card, Collection, Deck
 from .sqlments import *
-from .externalapis.mtgsdkreader import where_card, where_set
+from .externalapis.mtgsdkreader import where_card, where_set, find_many_cards
 
 class MTGDatabaseHandler:
     def __init__(self):
@@ -124,6 +124,46 @@ class MTGDatabaseHandler:
             cards = where_card(**kwargs)
             self.insert_cards(cards)
         return self.find_cards_exact(**kwargs)
+
+    def find_cards_from_cards(self, cards):
+        fails = []
+        success = []
+        for c in cards:
+            finds = []
+            if c.name is not None and c.set_code is not None:
+                finds = self.find_cards_exact(name=c.name, set_code=c.set_code)
+            elif c.name is not None:
+                finds = self.find_cards_exact(name=c.name)
+            else:
+                fails.append(c)
+            if 0 == len(finds):
+                fails.append(c)
+            else:
+                success += finds
+        return success, fails
+
+    def find_cards_from_cards_external(self, cards):
+        '''
+        Pass in a list of cards to find. Will query locally to find what cards are already in the local
+        database. Any cards not found in the DB will be passed to a mtgsdk querier to find there.
+        Those will be inserted into the local DB and then requeried locally.
+
+        Exceptions: ValueError passed up from externalapis.mtgsdkreader.find_many_cards
+
+        Return: a tuple being (list, list) each list is a list of cards. Index 0 is the cards found.
+                Index 1 is the cards passed in but not found.
+        '''
+        success, fails = self.find_cards_from_cards(cards)
+        if 0 < len(fails):
+            self.insert_cards(find_many_cards(fails))
+            success, fails = self.find_cards_from_cards(cards)
+        return success, fails
+
+
+    def find_many_cards_external(self, cards):
+        finds = []
+        for c in cards:
+            name_query
 
     def create_collection(self, name, path):
         cursor = self.openDB.cursor()
