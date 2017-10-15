@@ -17,6 +17,11 @@ from utils.mana import manaconversion, downloadimg
 
 from utils.config import DEFAULT_CARD_ICON
 
+class CardTable(QtWidgets.QTableView):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.model = CardModel(self)
+        self.setModel(self.model)
 
 class CardItem(QtGui.QStandardItem):
     def __init__(self, card, *args):

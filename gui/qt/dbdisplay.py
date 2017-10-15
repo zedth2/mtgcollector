@@ -10,13 +10,18 @@ Author : Zachary Harvey
 '''
 import pprint
 from PyQt5 import QtCore, QtGui, QtWidgets
-from inventories import sqlitehandler
+from inventories import mtgdbhandler, sqlitehandler
+from inventories import sqlments
+class CollectionItem(QtGui.QStandardItem):
+    def __init__(self, collection=None, *args):
+        super().__init__(*args)
+        self.collection = collection
 
 class TableModel(QtGui.QStandardItemModel):
     def __init__(self, parent=None):
         super().__init__(parent)
         #self.rootItem = TreeItem(("ID", "Name", "Mana Cost"))
-        self.setHorizontalHeaderItem(0, QtGui.QStandardItem("Name"))
+        self.setHorizontalHeaderItem(0, CollectionItem(None, "Name"))
         #self.setHorizontalHeaderItem(1, QtGui.QStandardItem("ID"))
         #self.setHorizontalHeaderItem(2, QtGui.QStandardItem("Mana Cost"))
         #self.addrootitems()
@@ -30,7 +35,7 @@ class TableModel(QtGui.QStandardItemModel):
         #elif isinstance(parent, QtGui.QStandardItem):
             #parent =
         while c < len(tables):
-            name = QtGui.QStandardItem(tables[c])
+            name = CollectionItem(None, tables[c])
             name.setEditable(False)
             self.appendRow([name])
             c += 1
@@ -38,7 +43,7 @@ class TableModel(QtGui.QStandardItemModel):
         #self.appendColumn(i[1])
 
     def addrootitems(self):
-        i = [QtGui.QStandardItem('Collections'), QtGui.QStandardItem('Decks'), QtGui.QStandardItem('Qube'), QtGui.QStandardItem('Sets')]
+        i = [CollectionItem(None, 'Collections'), CollectionItem(None, 'Decks'), CollectionItem(None, 'Qube'), CollectionItem(None, 'Sets')]
         c = 0
         while c < len(i):
             self.appendRow([i[c]])
@@ -53,7 +58,7 @@ class TableModel(QtGui.QStandardItemModel):
         if 0 < len(items) and items[0].parent() is None:
             item = items[0]
         else:
-            item = QtGui.QStandardItem(s[0])
+            item = CollectionItem(None, s[0])
             item.setEditable(False)
             self.appendRow(item)
         if len(s) < 2:
@@ -63,7 +68,7 @@ class TableModel(QtGui.QStandardItemModel):
                 continue
             i = self.check_children(item, p)
             if i is None:
-                i = QtGui.QStandardItem(p)
+                i = CollectionItem(None, p)
                 i.setEditable(False)
                 item.appendRow(i)
             item = i
@@ -72,8 +77,8 @@ class TableModel(QtGui.QStandardItemModel):
     def add_collections(self, items, select=True):
         item = None
         for i in items:
-            item = self.add_path(i[1])
-            c = QtGui.QStandardItem(i[2])
+            item = self.add_path(i.path)
+            c = CollectionItem(i, i.name)
             c.setEditable(False)
             item.appendRow(c)
             item = c
@@ -121,17 +126,16 @@ class TableModel(QtGui.QStandardItemModel):
             parent = parent.parent()
         return path
 
-
 class DatabaseDisplay(QtWidgets.QTreeView):
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.store = sqlitehandler.Store()
+        self.store = mtgdbhandler.MTGDatabaseHandler()
         self.model = TableModel(self)
         self.setModel(self.model)
-        self.model.addrootitems()
+        #self.model.addrootitems()
 
     def new_database(self, dbfile):
-        self.store = sqlitehandler.Store(dbfile)
+        self.store = mtgdbhandler.MTGDatabaseHandler(dbfile)
         self.store.create_new_db(dbfile)
 
     def click(self, *args):
@@ -140,18 +144,21 @@ class DatabaseDisplay(QtWidgets.QTreeView):
     def open_database(self, dbfile):
         self.store.open_file(dbfile)
         #self.model.addtables(self.store.gettables())
-        self.model.add_collections(self.store.get_collection_information())
+        self.model.add_collections(self.store.get_all_collections())
 
     def add_collection(self, path, name, skipdb=False, select=True):
-        if not skipdb and not self.store.collection_exists(path, name):
+        if not skipdb and not len(self.store.get_collection(path, name)):
             self.store.create_new_collection(path, name)
-        item = self.model.add_collections([(None, path, name, None)])
+        item = self.model.add_collections(self.store.get_all_collections())
         if select and item is not None:
             self.scrollTo(item.index())
             self.selectionModel().select(item.index(), QtCore.QItemSelectionModel.Select)
 
     def loadtable(self, tablename):
         self.gal.model.addtables(self.store.get_table_items(tablename))
+
+    def listtables(self):
+        self.add_collection('database/', sqlments.MTGCARDS_TABLE_NAME)
 
     def get_path(self, item):
         path = item.text()

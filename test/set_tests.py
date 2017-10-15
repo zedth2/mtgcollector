@@ -45,18 +45,18 @@ def test_has_tables(store):
     assert [mtgdbhandler.MTGSETS_TABLE_NAME, mtgdbhandler.MTGCARDS_TABLE_NAME, mtgdbhandler.MTG_USERBUILD_TABLE_NAME, 'sqlite_sequence'] == store.gettables()
 
 def test_add_all_sets(store):
-    all_sets = mtgsdkreader.all_sets()
+    all_sets = scryfalldealer.all_sets()
     assert 0 != len(all_sets)
     store.insert_sets(all_sets)
 
 def test_find_set_exact(store):
-    s = store.find_sets_exact(code='UNH')
+    s = store.find_sets_exact(code='unh')
     assert len(s) == 1
     assert s[0].name == 'Unhinged'
 
 def test_find_sets(store):
     s = store.find_sets_by_like(name='Un')
-    assert len(s) == 5 #I was expect to only get Unglued and Unhinged but that where statement doesn't work the way I thought it would
+    assert len(s) == 11 #It's 11 due to the fact that the search is LIKE "%Un%"
 
 def test_get_add_card(store):
     x = mtgsdk.Card.where(name='Shoe Tree').all()
@@ -87,20 +87,24 @@ def test_find_card_name(store):
 
 def test_add_collection(store):
     cols = store.create_collection('TESTER', 'here/there')
-    assert 1 == len(cols)
+    assert 'TESTER' == cols.name
+    assert 'here/there' == cols.path
 
-@pytest.mark.skip
+#@pytest.mark.skip
 def test_tcgplayer_csv_reads(store):
-    cards = tcgplayer_csv_to_cards('./test/pauper.csv')
+    cards = tcgplayer_csv_to_cards('./test/pauper.csv',  store.all_set_codes())
     suc, fails = store.find_cards_from_cards_external(cards)
     assert 0 == len(fails)
+    store.create_deck('Pauper', 'decks/pauper', suc)
 
+@pytest.mark.skip
 def test_scryfall():
     c = Card()
     c.name = "Bog Imp"
     cards = scryfalldealer.find_cards_by_name([c])
     print(cards)
 
+@pytest.mark.skip
 def get_a_set():
     import mtgsdk
     mtgsdk_dict = {'code': 'UNH', 'name': 'Unhinged', 'type': 'un', 'border': 'silver', 'mkm_id': 59, 'mkm_name': 'Unhinged', 'release_date': '2004-11-20', 'gatherer_code': None, 'magic_cards_info_code': 'uh', 'booster': ['rare', 'uncommon', 'uncommon', 'uncommon', 'common', 'common', 'common', 'common', 'common', 'common', 'common', 'common', 'common', 'common', 'land'], 'old_code': None, 'block': None, 'online_only': None}
@@ -108,5 +112,5 @@ def get_a_set():
     return Set.from_MTG_SDK(s)
 
 if __name__ == '__main__':
-    #test_tcgplayer_csv_reads(store())
-    test_scryfall()
+    test_tcgplayer_csv_reads(store())
+    #test_scryfall()

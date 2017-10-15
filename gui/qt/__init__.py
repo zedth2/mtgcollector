@@ -12,7 +12,7 @@ from os import environ
 from os.path import basename
 from PyQt5 import QtCore, QtGui, QtWidgets
 from mtgsdk import Card
-from .cardgallery import CardGallery
+from .cardgallery import CardGallery, CardTable
 from .cardetails import CardDetails
 from .dbdisplay import DatabaseDisplay
 from .csvimporter import CSVImporter
@@ -30,8 +30,9 @@ class MTGCollections(QtWidgets.QWidget):
         self.databaseinfo.clicked.connect(self.click)
         self.mainhlyo.addWidget(self.databaseinfo)
 
-        self.csvimp = CSVImporter(self)
-        self.csvimp.btnTmp.clicked.connect(self.clickimport)
+        #self.csvimp = CSVImporter(self)
+        self.csvimp = CardTable(self)
+        #self.csvimp.btnTmp.clicked.connect(self.clickimport)
         self.gal = CardGallery(self)
 
         self.galcsvholder = QtWidgets.QWidget(self)
@@ -142,18 +143,17 @@ class MTGCollections(QtWidgets.QWidget):
 
     def click(self, modelindex):
         if self.databaseinfo.store is not None:
-            path = self.databaseinfo.get_path(self.databaseinfo.model.itemFromIndex(modelindex))
-            if self.loadtmp(path):
-                return
-            #try:
-            text = self.databaseinfo.model.itemFromIndex(modelindex).text()
-            print('TEXT ', text)
-            self.gal.model.addcards(self.databaseinfo.store.get_table_items(text))
-            #except Exception as ex:
-                #print('EXCEPTION ', ex)
+            item = self.databaseinfo.model.itemFromIndex(modelindex).collection
+            if item is None: return
+            if self.loadtmp(item.path): return
+            try:
+                text = item.name
+                print('TEXT ', self.databaseinfo.model.itemFromIndex(modelindex).collection.__dict__)
+                self.gal.model.addcards(self.databaseinfo.store.get_table_items(text))
+            except Exception as ex:
+                print('EXCEPTION ', ex)
 
     def loadtmp(self, path):
-        print('HERE ', path)
         if path.startswith('tmp/'):
             if path.split('/')[-1] in self.tmps:
                 self.gal.model.threadcardadds(self.tmps[path.split('/')[-1]])

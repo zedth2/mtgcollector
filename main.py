@@ -11,6 +11,7 @@ Author : Zachary Harvey
 from sys import argv, exit
 from PyQt5 import QtCore, QtGui, QtWidgets
 from gui.qt import MTGCollections
+from utils import logsetup
 
 def main(*args):
     app = QtWidgets.QApplication(list(args))

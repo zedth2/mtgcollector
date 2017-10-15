@@ -10,32 +10,82 @@ Author : Zachary Harvey
 '''
 from hashlib import sha1
 from datetime import datetime
-from .sqlments import MTGSETS_KEYS_TYPES, MTGSETS_PRIMARY, MTGCARDS_KEYS_TYPES, CONVERSION_TO_Py, CONVERSION_TO_SQL, MTGCARDS_PRIMARY
+from .sqlments import *
 import json
+
+import logging
 
 SCRYFALL_COLORS = {'U':'Blue','B':'Black', 'G':'Green', 'W':'White', 'R':'Red'}
 class Collection:
-    def __init__(self, name, path, unqkey=None):
+    def __init__(self, name, path, unqkey=None, tablename='', type='COLLECTION'):
         self.name = name
         self.path = path
         self.cards = []
+        self.__tablename = ''
+        self.__unqkey = unqkey
+        self.type = type
+
+    def get_card_inserts(self):
+        keys = self.__class__.database_keys()
+        inserts = []
+        for c in self.cards:
+            cur = []
+            for k in keys:
+                cur.append(c[k])
+            inserts.append(tuple(cur))
+        return inserts
 
     @property
     def unqkey(self):
         return self.__unqkey
+
+    @property
+    def tablename(self):
+        if self.unqkey is None:
+            raise ValueError('Needs a unqiue key to create a table name')
+        if self.__tablename is '':
+            self.__tablename = self.name + str(self.unqkey)
+        return self.__tablename
+
+    @staticmethod
+    def database_keys():
+        return tuple(COLLECTION_KEYS_TYPES.keys())
+
+    @staticmethod
+    def sql_create_table():
+        return collection_sql
+
+    @staticmethod
+    def collection_type():
+        return 'COLLECTION'
 
     @staticmethod
     def from_db_values(values):
         return Collection(values[2], values[1], values[0])
 
 class Deck(Collection):
-    def __init__(self, name, path, format='kitchen', unqkey=None):
-        super().__init__(name, path, unqkey)
+    def __init__(self, name, path, format='kitchen', unqkey=None, tablename='', type='DECK'):
+        super().__init__(name, path, unqkey, tablename, type)
         self.format = format
+
+    #def get_card_inserts(self):
+        #return [(c.id, c.count, c.board) for c in self.cards]
 
     @staticmethod
     def from_db_values(values):
         return Deck(values[2], values[1], values[3], values[0])
+
+    @staticmethod
+    def database_keys():
+        return tuple(DECK_KEYS_TYPES.keys())
+
+    @staticmethod
+    def sql_create_table():
+        return deck_sql
+
+    @staticmethod
+    def collection_type():
+        return 'DECK'
 
 class _Base:
     def __getitem__(self, key):
@@ -103,6 +153,7 @@ class Card(_Base):
         self.image_url = None
         self.language = None
         self.count = 0
+        self.board = 'M'
 
     def get_db_values(self):
         return super().get_db_values(MTGCARDS_KEYS_TYPES, MTGCARDS_PRIMARY)
@@ -112,6 +163,7 @@ class Card(_Base):
         multi_id = ''
         if self.multiverse_id is None and self.collectors_number is None:
             raise ValueError('Must contain at least a collectors_number or a multiverse_id ' + str(self.name) + ' ' + str(self.set_code)) #This Stops the loading from_db_values
+            logging.debug('Failure to create id {} {} {} {}'.format(self.name, self.set_code, self.multiverse_id, self.collectors_number))
             #return self.__id
         if self.multiverse_id is not None:
             multi_id = str(self.multiverse_id)
@@ -172,23 +224,23 @@ class Card(_Base):
         reCard.set_code = scrydict.get('set', None)
         reCard.color = [SCRYFALL_COLORS[c] for c in scrydict['colors']]
         reCard.mana_cost = scrydict.get('mana_cost', None)
-        reCard.cmc = scrydict['cmc']
-        reCard.rarity = scrydict['rarity']
-        reCard.power = scrydict['power']
-        reCard.toughness = scrydict['toughness']
+        reCard.cmc = scrydict.get('cmc', None)
+        reCard.rarity = scrydict.get('rarity', None)
+        reCard.power = scrydict.get('power', None)
+        reCard.toughness = scrydict.get('toughness', None)
         reCard.loyalty = scrydict.get('loyalty', None)
-        reCard.flavor_text = scrydict['flavor_text']
-        reCard.type_line = scrydict['type_line']
-        reCard.oracle_text = scrydict['oracle_text']
-        reCard.artist = scrydict['artist']
-        reCard.layout = scrydict['layout']
+        reCard.flavor_text = scrydict.get('flavor_text', None)
+        reCard.type_line = scrydict.get('type_line', None)
+        reCard.oracle_text = scrydict.get('oracle_text', None)
+        reCard.artist = scrydict.get('artist', None)
+        reCard.layout = scrydict.get('layout', None)
         #reCard.types = scrydict.types #I'm hoping to create these from the type line property
         #reCard.subtypes = scrydict.subtypes
         #reCard.supertypes = scrydict.supertypes
         #reCard.foreign_names = None
         #reCard.rulings = scrydict.rulings
-        reCard.legalities = scrydict['legalities']
-        reCard.image_url = scrydict['image_uri']
+        reCard.legalities = scrydict.get('legalities', None)
+        reCard.image_url = scrydict.get('image_uri', None)
         reCard.id = reCard.create_id()
         #reCard.language = card.language
         return reCard
@@ -203,6 +255,8 @@ class Set(_Base):
         self.release_date = None
         self.booster = None
         self.online_only = None
+        self.icon_svg_uri = None
+        self.card_count = None
 
     def get_db_values(self):
         return super().get_db_values(MTGSETS_KEYS_TYPES, MTGSETS_PRIMARY)
@@ -227,6 +281,17 @@ class Set(_Base):
         reSet.online_only = one_set.online_only
         return reSet
 
+    @staticmethod
+    def from_scryfall(values):
+        reSet = Set()
+        reSet.code = values['code']
+        reSet.name = values['name']
+        reSet.release_date = values.get('released_at', None)
+        if reSet.release_date is not None:
+            reSet.release_date = datetime.strptime(values['released_at'], '%Y-%m-%d')
+        reSet.card_count = values['card_count']
+        reSet.icon_svg_uri = values['icon_svg_uri']
+        return reSet
 
 if __name__ == '__main__':
     import mtgsdk
