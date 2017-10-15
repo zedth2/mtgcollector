@@ -152,8 +152,9 @@ class MTGCollections(QtWidgets.QWidget):
             except AttributeError: #If it's not a class of type Collection
                 pass
             try:
-                logging.debug('Attempting to load ' + str(type(item.collection)) + ' ' + str(item.collection.name))
-                self.gal.model.addcards(self.databaseinfo.model.get_cards(modelindex, self.databaseinfo.store))
+                cards = self.databaseinfo.model.get_cards(modelindex, self.databaseinfo.store)
+                logging.debug('Attempting to load ' + str(type(item.collection)) + ' ' + str(item.collection.name) + ' total cards found ' + str(len(cards)))
+                self.gal.model.threadcardadds(cards)
             except Exception as ex:
                 print('EXCEPTION ', ex)
 

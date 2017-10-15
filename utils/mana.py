@@ -8,6 +8,7 @@ Author : Zachary Harvey
 
 
 '''
+import logging
 import imghdr
 from os.path import exists
 from glob import glob
@@ -101,11 +102,13 @@ def downloadimg(card):
 
     files = glob(path + '*')
     if len(files) and exists(files[0]):
+        logging.info('Local icon found: ' + files[0])
         return files[0]
     else:
         if card.image_url is None:
-            print('ERROR : No Icon for ', card.name, card.id)
+            logging.error('ERROR : No Icon for ' + card.name + ' ' + card.id)
             return config.DEFAULT_CARD_ICON
+        logging.info('Downloading image from ' + card.image_url)
         bits = request.urlopen(card.image_url).read()
         ext = '.'+imghdr.what(None, bits)
         if ext is None:

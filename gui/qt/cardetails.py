@@ -32,5 +32,5 @@ class CardDetails(QtWidgets.QWidget):
         img = downloadimg(self.card)
         self.lblCard.setPixmap(QtGui.QPixmap(img))
         #self.lblCard.setText(self.card.name)
-        text = self.card.text if self.card.text else ''
-        self.docText.setPlainText(text + '\n' + img + '\n\n' + 'Quanity ' + str(card.quantity))
+        text = self.card.oracle_text if self.card.oracle_text else ''
+        self.docText.setPlainText(text + '\n\n' + ('Count ' + str(card.count) if card.count else ''))
