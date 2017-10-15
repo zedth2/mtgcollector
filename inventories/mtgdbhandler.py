@@ -139,8 +139,6 @@ class MTGDatabaseHandler:
 
     def insert_cards_userbuild(self, collection):
         inserts = collection.get_card_inserts()
-
-        #inserts = [ for c in cards]
         cursor = self.openDB.cursor()
         try:
             cursor.executemany('INSERT INTO ' + collection.tablename + ' VALUES (' + ', '.join(['?']*len(collection.__class__.database_keys())) + ');', inserts)
@@ -220,29 +218,11 @@ class MTGDatabaseHandler:
             collections.append(Collection.from_db_values(r))
         return collections
 
-    def get_cards_from_collection(self, collection):
+    def get_cards_from_collection(self, collection): #select * from mtgcards join Pauper using (id);
         pass
 
     def create_deck(self, name, path, cards=[]):
         return self.insert_userbuild(name, path, Deck.collection_type(), Deck, 'kitchen', cards)
-        #cursor = self.openDB.cursor()
-        #cursor.execute('INSERT INTO ' + MTG_USERBUILD_TABLE_NAME + ' VALUES (' + ', '.join(['?']*len(MTG_USERBUILD_KEYS_TYPES.keys())) + ');', (None, path, name, 'kitchen', 'DECK', None))
-        #self.openDB.commit()
-        #cursor.execute(deck_sql(name))
-
-        #if len(cards):
-            #inserts = []
-            #for c in cards:
-                #inserts.append((c.id, c.count, "M"))
-                #print('ADDING ', c.name, 'SET ', c.set_code, 'COUNT ', c.count)
-            ##inserts = [ for c in cards]
-            #cursor = self.openDB.cursor()
-            #try:
-                #cursor.executemany('INSERT INTO ' + name + ' VALUES (' + ', '.join(['?']*len(DECK_KEYS)) + ');', inserts)
-            #except sql.IntegrityError as ex:
-                #print(ex)
-            #self.openDB.commit()
-
 
     def create_qube(self, name, path):
         cursor = self.openDB.cursor()

@@ -179,7 +179,7 @@ class Card(_Base):
     id = property(_getId, _setId)
 
     @staticmethod
-    def from_db_values(values):
+    def from_db_values(values): #Don't think this static keys types thing is going to work anymore. Once we throw a join in everything is going to go to hell
         card = _Base.from_db_values(Card, values, MTGCARDS_KEYS_TYPES)
         if None == card.id:
             card.id = card.create_id()
