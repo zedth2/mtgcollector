@@ -52,6 +52,10 @@ class Collection:
         return tuple(COLLECTION_KEYS_TYPES.keys())
 
     @staticmethod
+    def database_keytypes():
+        return COLLECTION_KEYS_TYPES
+
+    @staticmethod
     def sql_create_table():
         return collection_sql
 
@@ -78,6 +82,10 @@ class Deck(Collection):
     @staticmethod
     def database_keys():
         return tuple(DECK_KEYS_TYPES.keys())
+
+    @staticmethod
+    def database_keytypes():
+        return DECK_KEYS_TYPES
 
     @staticmethod
     def sql_create_table():
@@ -179,8 +187,8 @@ class Card(_Base):
     id = property(_getId, _setId)
 
     @staticmethod
-    def from_db_values(values): #Don't think this static keys types thing is going to work anymore. Once we throw a join in everything is going to go to hell
-        card = _Base.from_db_values(Card, values, MTGCARDS_KEYS_TYPES)
+    def from_db_values(values, keytypes=MTGCARDS_KEYS_TYPES): #Don't think this static keys types thing is going to work anymore. Once we throw a join in everything is going to go to hell
+        card = _Base.from_db_values(Card, values, keytypes)
         if None == card.id:
             card.id = card.create_id()
         return card
@@ -247,7 +255,7 @@ class Card(_Base):
 
 class Set(_Base):
     def __init__(self):
-        self.code = None
+        self.set_code = None
         self.name = None
         self.block = None
         self.border = None
@@ -284,7 +292,7 @@ class Set(_Base):
     @staticmethod
     def from_scryfall(values):
         reSet = Set()
-        reSet.code = values['code']
+        reSet.set_code = values['code']
         reSet.name = values['name']
         reSet.release_date = values.get('released_at', None)
         if reSet.release_date is not None:
@@ -293,5 +301,15 @@ class Set(_Base):
         reSet.icon_svg_uri = values['icon_svg_uri']
         return reSet
 
+def all_types():
+    return ('DECK',
+            'COLLECTION',
+            'QUBE')
+
+def get_class(type):
+    if type.upper() == 'DECK':
+        return Deck
+    else:
+        return Collection
 if __name__ == '__main__':
     import mtgsdk

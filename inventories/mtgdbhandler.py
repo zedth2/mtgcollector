@@ -13,7 +13,7 @@ import sqlite3 as sql
 from datetime import datetime
 import logging
 
-from . import Set, Card, Collection, Deck
+from . import Set, Card, Collection, Deck, get_class
 from .sqlments import *
 from .externalapis.mtgsdkreader import where_card, where_set, find_many_cards
 from .externalapis import scryfalldealer
@@ -54,48 +54,46 @@ class MTGDatabaseHandler:
             reVal.extend(t)
         return reVal
 
-    def find_by_exact(self, table, keys, item_type, **kwargs):
+    def find_by_like(self, table, item_type, **kwargs):
+        cur = self.openDB.cursor()
+        reSets = []
+        return self.get_items(cur.execute('select * from ' + table + ' where ' + self.where_like_statement(**kwargs)), item_type)
+
+    def find_by_exact(self, table, item_type, **kwargs):
         wheres = []
         for k, v in kwargs.items():
             wheres.append('"' + k + '" = "' + v + '"')
         statement = 'SELECT * FROM '+table + ' WHERE ' + ' and '.join(wheres) + '; '
-        return self.get_items(self.openDB.execute(statement), item_type, keys)
+        return self.get_items(self.openDB.execute(statement), item_type)
 
-    def get_items(self, cursor, item_type, keys):
+    def get_items(self, cursor, item_type):
         sets = []
         for vals in cursor.fetchall():
             sets.append(item_type.from_db_values(vals))
         return sets
 
-    def wherestatement(self, **kwargs):
+    def where_like_statement(self, **kwargs):
         reStr = ''
         for k, v in kwargs.items():
             reStr += k + ' LIKE "%' + v + '%" '
         return reStr
 
-    def find_by_like(self, table, keys, item_type, **kwargs):
-        cur = self.openDB.cursor()
-        reSets = []
-        return self.get_items(cur.execute('select * from ' + table + ' where ' + self.wherestatement(**kwargs)), item_type, keys)
-
+#Set handlers Begin..
     def find_sets_by_like(self, **kwargs):
-        return self.find_by_like(MTGSETS_TABLE_NAME, MTGSETS_KEYS_TYPES, Set, **kwargs)
+        return self.find_by_like(MTGSETS_TABLE_NAME, Set, **kwargs)
 
     def find_sets_exact(self, **kwargs):
-        return self.find_by_exact(MTGSETS_TABLE_NAME, MTGSETS_KEYS_TYPES, Set, **kwargs)
+        return self.find_by_exact(MTGSETS_TABLE_NAME, Set, **kwargs)
 
     def all_set_codes(self):
-        result = self.openDB.execute('SELECT code FROM '+MTGSETS_TABLE_NAME).fetchall()
+        result = self.openDB.execute('SELECT set_code FROM '+MTGSETS_TABLE_NAME).fetchall()
         reLst = []
         for r in result:
             reLst.extend(r)
         return reLst
 
-    def find_cards_by_like(self, **kwargs):
-        return self.find_by_like(MTGCARDS_TABLE_NAME, MTGCARDS_KEYS_TYPES, Card, **kwargs)
-
-    def find_cards_exact(self, **kwargs):
-        return self.find_by_exact(MTGCARDS_TABLE_NAME, MTGCARDS_KEYS_TYPES, Card, **kwargs)
+    def all_sets(self):
+        return [Set.from_db_values(r) for r in self.openDB.execute('SELECT * FROM ' + MTGSETS_TABLE_NAME).fetchall()]
 
     def insert_sets(self, sets):
         if not isinstance(sets, (tuple, list)):
@@ -105,45 +103,24 @@ class MTGDatabaseHandler:
         cursor.executemany('INSERT INTO ' + MTGSETS_TABLE_NAME + ' VALUES ('+', '.join(['?']*len(MTGSETS_KEYS_TYPES.keys())) + ');', inserts)
         self.openDB.commit()
 
+    def get_all_cards_from_set(self, set):
+        return self.find_cards_exact(set_code=set.set_code)
+#..End Set handlers
+
+#Card handlers Begin...
+    def find_cards_by_like(self, **kwargs):
+        return self.find_by_like(MTGCARDS_TABLE_NAME, Card, **kwargs)
+
+    def find_cards_exact(self, **kwargs):
+        return self.find_by_exact(MTGCARDS_TABLE_NAME, Card, **kwargs)
+
+
     def insert_cards(self, cards):
         if not isinstance(cards, (tuple, list)):
             cards = [cards]
         inserts = [c.get_db_values() for c in cards]
         cursor = self.openDB.cursor()
         cursor.executemany('INSERT INTO ' + MTGCARDS_TABLE_NAME + ' VALUES (' + ', '.join(['?']*len(MTGCARDS_KEYS_TYPES.keys())) + ');', inserts)
-        self.openDB.commit()
-
-    def insert_userbuild(self, name, path, type, retype, format=None, cards=[]):
-        cursor = self.openDB.cursor()
-        cursor.execute('INSERT INTO ' + MTG_USERBUILD_TABLE_NAME + ' VALUES (' + ', '.join(['?']*len(MTG_USERBUILD_KEYS_TYPES.keys())) + ');', (None, path, name, format, type, None))
-        rowid = cursor.lastrowid
-        self.openDB.commit()
-        coll = self.get_userbuild(name, path, retype, rowid)[0]
-        cursor.execute('UPDATE ' + MTG_USERBUILD_TABLE_NAME + ' SET tablename = "' + coll.tablename + '" WHERE unqkey = ' + str(coll.unqkey) + ';')
-        cursor.execute(retype.sql_create_table()(coll.tablename))
-        self.openDB.commit()
-        coll.cards = cards
-        self.insert_cards_userbuild(coll)
-        return coll
-
-    def get_userbuild(self, name, path, retype, unqkey=None):
-        reLst = []
-        cols = []
-        if unqkey is None:
-            cols = self.openDB.execute('SELECT * FROM ' + MTG_USERBUILD_TABLE_NAME + ' WHERE "name" = :name AND "path" = :path AND type = :collection', {"name":name, "path": path, "collection": retype.collection_type()}).fetchall()
-        else:
-            cols = self.openDB.execute('SELECT * FROM ' + MTG_USERBUILD_TABLE_NAME + ' WHERE "name" = :name AND "path" = :path AND type = :collection AND unqkey = :unqkey', {"name":name, "path": path, "collection": retype.collection_type(), "unqkey": unqkey}).fetchall()
-        for c in cols:
-            reLst.append(retype.from_db_values(c))
-        return reLst
-
-    def insert_cards_userbuild(self, collection):
-        inserts = collection.get_card_inserts()
-        cursor = self.openDB.cursor()
-        try:
-            cursor.executemany('INSERT INTO ' + collection.tablename + ' VALUES (' + ', '.join(['?']*len(collection.__class__.database_keys())) + ');', inserts)
-        except sql.IntegrityError as ex:
-            print(ex)
         self.openDB.commit()
 
     def find_cards_by_like_to_external(self, **kwargs):
@@ -207,22 +184,70 @@ class MTGDatabaseHandler:
             self.insert_cards(scryfalldealer.find_cards_by_name(fails))
             success, fails = self.find_cards_from_cards(cards)
         return success, fails
+#...End Card handlers
+
+#Userbuild handlers Begin...
+    def insert_userbuild(self, name, path, type, retype, format=None, cards=[]):
+        cursor = self.openDB.cursor()
+        cursor.execute('INSERT INTO ' + MTG_USERBUILD_TABLE_NAME + ' VALUES (' + ', '.join(['?']*len(MTG_USERBUILD_KEYS_TYPES.keys())) + ');', (None, path, name, format, type, None))
+        rowid = cursor.lastrowid
+        self.openDB.commit()
+        coll = self.get_userbuild(name, path, retype, rowid)[0]
+        cursor.execute('UPDATE ' + MTG_USERBUILD_TABLE_NAME + ' SET tablename = "' + coll.tablename + '" WHERE unqkey = ' + str(coll.unqkey) + ';')
+        cursor.execute(retype.sql_create_table()(coll.tablename))
+        self.openDB.commit()
+        coll.cards = cards
+        self.insert_cards_userbuild(coll)
+        return coll
+
+    def get_userbuild(self, name, path, retype, unqkey=None):
+        reLst = []
+        cols = []
+        if unqkey is None:
+            cols = self.openDB.execute('SELECT * FROM ' + MTG_USERBUILD_TABLE_NAME + ' WHERE "name" = :name AND "path" = :path AND type = :collection', {"name":name, "path": path, "collection": retype.collection_type()}).fetchall()
+        else:
+            cols = self.openDB.execute('SELECT * FROM ' + MTG_USERBUILD_TABLE_NAME + ' WHERE "name" = :name AND "path" = :path AND type = :collection AND unqkey = :unqkey', {"name":name, "path": path, "collection": retype.collection_type(), "unqkey": unqkey}).fetchall()
+        for c in cols:
+            reLst.append(retype.from_db_values(c))
+        return reLst
+
+    def insert_cards_userbuild(self, collection):
+        inserts = collection.get_card_inserts()
+        cursor = self.openDB.cursor()
+        try:
+            cursor.executemany('INSERT INTO ' + collection.tablename + ' VALUES (' + ', '.join(['?']*len(collection.__class__.database_keys())) + ');', inserts)
+        except sql.IntegrityError as ex:
+            print(ex)
+        self.openDB.commit()
+
+    def get_all_userbuilds(self):
+        collections = []
+        typeindex = list(MTG_USERBUILD_KEYS_TYPES.keys()).index('type')
+        cursor = self.openDB.cursor()
+        for r in cursor.execute('SELECT * FROM ' + MTG_USERBUILD_TABLE_NAME + ';').fetchall():
+            collections.append(get_class(r[typeindex]).from_db_values(r))
+            collections[-1].cards = self.get_cards_from_collection(collections[-1])
+        return collections
+#...End Userbuild handlers
 
     def create_collection(self, name, path, cards=[]):
         return self.insert_userbuild(name, path, Collection.collection_type(), Collection, None, cards)
 
-    def get_all_collections(self):
-        collections = []
-        cursor = self.openDB.cursor()
-        for r in cursor.execute('SELECT * FROM ' + MTG_USERBUILD_TABLE_NAME + ';').fetchall():
-            collections.append(Collection.from_db_values(r))
-        return collections
 
     def get_cards_from_collection(self, collection): #select * from mtgcards join Pauper using (id);
-        pass
+        if not collection.tablename:
+            raise ValueError('Collection must contain a table name')
+        keytypes = {}
+        keytypes.update(MTGCARDS_KEYS_TYPES)
+        keytypes.update(collection.database_keytypes())
+        cursor = self.openDB.execute('SELECT * FROM ' + MTGCARDS_TABLE_NAME + ' join ' + collection.tablename + ' using (id);')
+        cards = []
+        for c in cursor.fetchall():
+            cards.append(Card.from_db_values(c, keytypes))
+        return cards
 
-    def create_deck(self, name, path, cards=[]):
-        return self.insert_userbuild(name, path, Deck.collection_type(), Deck, 'kitchen', cards)
+    def create_deck(self, name, path, format='kitchen', cards=[]):
+        return self.insert_userbuild(name, path, Deck.collection_type(), Deck, format, cards)
 
     def create_qube(self, name, path):
         cursor = self.openDB.cursor()

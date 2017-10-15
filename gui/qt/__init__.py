@@ -8,6 +8,7 @@ Author : Zachary Harvey
 
 
 '''
+import logging
 from os import environ
 from os.path import basename
 from PyQt5 import QtCore, QtGui, QtWidgets
@@ -126,6 +127,7 @@ class MTGCollections(QtWidgets.QWidget):
     def opendatabase(self, dbfile):
         self.databaseinfo.open_database(dbfile)
 
+
     def clickimport(self):
         path = self.databaseinfo.selected_path()
         base = path.rsplit('/',1)[-1]
@@ -143,13 +145,15 @@ class MTGCollections(QtWidgets.QWidget):
 
     def click(self, modelindex):
         if self.databaseinfo.store is not None:
-            item = self.databaseinfo.model.itemFromIndex(modelindex).collection
-            if item is None: return
-            if self.loadtmp(item.path): return
+            item = self.databaseinfo.model.itemFromIndex(modelindex)
+            if item.collection is None: return
             try:
-                text = item.name
-                print('TEXT ', self.databaseinfo.model.itemFromIndex(modelindex).collection.__dict__)
-                self.gal.model.addcards(self.databaseinfo.store.get_table_items(text))
+                if self.loadtmp(item.collection.path): return
+            except AttributeError: #If it's not a class of type Collection
+                pass
+            try:
+                logging.debug('Attempting to load ' + str(type(item.collection)) + ' ' + str(item.collection.name))
+                self.gal.model.addcards(self.databaseinfo.model.get_cards(modelindex, self.databaseinfo.store))
             except Exception as ex:
                 print('EXCEPTION ', ex)
 

@@ -12,6 +12,8 @@ import pprint
 from PyQt5 import QtCore, QtGui, QtWidgets
 from inventories import mtgdbhandler, sqlitehandler
 from inventories import sqlments
+from inventories import Collection, Deck, Set, Card
+
 class CollectionItem(QtGui.QStandardItem):
     def __init__(self, collection=None, *args):
         super().__init__(*args)
@@ -24,7 +26,12 @@ class TableModel(QtGui.QStandardItemModel):
         self.setHorizontalHeaderItem(0, CollectionItem(None, "Name"))
         #self.setHorizontalHeaderItem(1, QtGui.QStandardItem("ID"))
         #self.setHorizontalHeaderItem(2, QtGui.QStandardItem("Mana Cost"))
-        #self.addrootitems()
+        self.addrootitems()
+
+    def add_sets(self, sets):
+        magic = self.item_from_text('Magic')
+        for s in sets:
+            magic.appendRow(CollectionItem(s, s.name))
 
     def addtables(self, tables, parent=None):
         self.clear()
@@ -42,8 +49,28 @@ class TableModel(QtGui.QStandardItemModel):
         #self.appendColumn(i)
         #self.appendColumn(i[1])
 
+    def allrootitems(self):
+        reLst = []
+        cnt = 0
+        while self.rowCount() > cnt:
+            reLst.append(self.item(cnt, 0))
+            cnt += 1
+        return reLst
+
+    def item_from_text(self, text):
+        cnt = 0
+        re = None
+        while self.rowCount() > cnt:
+            item = self.item(cnt, 0)
+            if item.text() == text:
+                re = item
+                break
+            cnt += 1
+        return re
+
     def addrootitems(self):
-        i = [CollectionItem(None, 'Collections'), CollectionItem(None, 'Decks'), CollectionItem(None, 'Qube'), CollectionItem(None, 'Sets')]
+        #i = [CollectionItem(None, 'Collections'), CollectionItem(None, 'Decks'), CollectionItem(None, 'Qube'), CollectionItem(None, 'Sets')]
+        i = [CollectionItem(None, 'Magic')]
         c = 0
         while c < len(i):
             self.appendRow([i[c]])
@@ -126,6 +153,18 @@ class TableModel(QtGui.QStandardItemModel):
             parent = parent.parent()
         return path
 
+    def get_cards(self, modelindex, store):
+        cards = []
+        item = self.itemFromIndex(modelindex)
+        if item.collection is None: return cards
+        if isinstance(item.collection, Deck):
+            return item.collection.cards
+        elif isinstance(item.collection, Set):
+            return store.get_all_cards_from_set(item.collection)
+        elif isinstance(item.collection, Collection):
+            return item.collection.cards
+
+
 class DatabaseDisplay(QtWidgets.QTreeView):
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -144,12 +183,13 @@ class DatabaseDisplay(QtWidgets.QTreeView):
     def open_database(self, dbfile):
         self.store.open_file(dbfile)
         #self.model.addtables(self.store.gettables())
-        self.model.add_collections(self.store.get_all_collections())
+        self.model.add_collections(self.store.get_all_userbuilds())
+        self.model.add_sets(self.store.all_sets())
 
     def add_collection(self, path, name, skipdb=False, select=True):
         if not skipdb and not len(self.store.get_collection(path, name)):
             self.store.create_new_collection(path, name)
-        item = self.model.add_collections(self.store.get_all_collections())
+        item = self.model.add_collections(self.store.get_all_userbuilds())
         if select and item is not None:
             self.scrollTo(item.index())
             self.selectionModel().select(item.index(), QtCore.QItemSelectionModel.Select)

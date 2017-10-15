@@ -50,7 +50,7 @@ def test_add_all_sets(store):
     store.insert_sets(all_sets)
 
 def test_find_set_exact(store):
-    s = store.find_sets_exact(code='unh')
+    s = store.find_sets_exact(set_code='unh')
     assert len(s) == 1
     assert s[0].name == 'Unhinged'
 
@@ -95,7 +95,7 @@ def test_tcgplayer_csv_reads(store):
     cards = tcgplayer_csv_to_cards('./test/pauper.csv',  store.all_set_codes())
     suc, fails = store.find_cards_from_cards_external(cards)
     assert 0 == len(fails)
-    store.create_deck('Pauper', 'decks/pauper', suc)
+    store.create_deck('Pauper', 'decks/pauper', 'pauper', suc)
 
 @pytest.mark.skip
 def test_scryfall():

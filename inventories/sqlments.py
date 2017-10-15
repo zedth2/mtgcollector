@@ -85,14 +85,14 @@ MTGCARDS_SQL = '''CREATE TABLE ''' + MTGCARDS_TABLE_NAME + '''
                 "rulings" TEXT,
                 "legalities" TEXT,
                 "image_url" TEXT,
-                FOREIGN KEY("set_code") REFERENCES mtgsets("code")
+                FOREIGN KEY("set_code") REFERENCES mtgsets("set_code")
                 )
 '''
 
 MTGSETS_TABLE_NAME = 'mtgsets'
 MTGSETS_KEYS = ('code', 'name', 'block', 'border', 'gatherer_code', 'release_date', 'booster', 'online_only')
 MTGSETS_KEYS_TYPES = OrderedDict([
-                    ("code", 'str' ),
+                    ("set_code", 'str' ),
                     ("name", 'str' ),
                     ("block", 'str' ),
                     ("border", 'str' ),
@@ -105,7 +105,7 @@ MTGSETS_KEYS_TYPES = OrderedDict([
 MTGSETS_PRIMARY = tuple(MTGSETS_KEYS_TYPES.keys())[0]
 MTGSETS_SQL = '''CREATE TABLE ''' + MTGSETS_TABLE_NAME + '''
                 (
-                "code" TEXT PRIMARY KEY COLLATE NOCASE,
+                "set_code" TEXT PRIMARY KEY COLLATE NOCASE,
                 "name" TEXT,
                 "block" TEXT,
                 "border" TEXT,
