@@ -281,6 +281,7 @@ class Set(_Base):
         self.online_only = None
         self.icon_svg_uri = None
         self.card_count = None
+        self.set_type = None
 
     def get_db_values(self):
         return super().get_db_values(MTGSETS_KEYS_TYPES, MTGSETS_PRIMARY)
@@ -315,6 +316,8 @@ class Set(_Base):
             reSet.release_date = datetime.strptime(values['released_at'], '%Y-%m-%d')
         reSet.card_count = values['card_count']
         reSet.icon_svg_uri = values['icon_svg_uri']
+        reSet.set_type = values.get('set_type', None)
+        reSet.block = values.get('block', None)
         return reSet
 
 def all_types():

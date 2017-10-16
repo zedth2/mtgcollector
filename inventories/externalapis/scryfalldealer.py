@@ -44,5 +44,5 @@ def parse_response(response, localtype):
 
 
 if __name__ == '__main__':
-    for s in find_all_sets():
+    for s in all_sets():
         print(s.name)

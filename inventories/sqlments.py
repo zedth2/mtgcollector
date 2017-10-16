@@ -100,7 +100,8 @@ MTGSETS_KEYS_TYPES = OrderedDict([
                     ("release_date", 'epoch' ),
                     ("online_only", 'bool' ),
                     ("icon_svg_uri", 'str'),
-                    ("card_count", 'int'),])
+                    ("card_count", 'int'),
+                    ("set_type", 'str'),])
 
 MTGSETS_PRIMARY = tuple(MTGSETS_KEYS_TYPES.keys())[0]
 MTGSETS_SQL = '''CREATE TABLE ''' + MTGSETS_TABLE_NAME + '''
@@ -113,7 +114,8 @@ MTGSETS_SQL = '''CREATE TABLE ''' + MTGSETS_TABLE_NAME + '''
                 "release_date" INTEGER,
                 "online_only" BOOLEAN,
                 "icon_svg_uri" TEXT,
-                "card_count" INTEGER
+                "card_count" INTEGER,
+                "set_type" TEXT
                 )
 '''
 
