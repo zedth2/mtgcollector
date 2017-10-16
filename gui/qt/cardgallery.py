@@ -17,11 +17,6 @@ from utils.mana import manaconversion, downloadimg
 
 from utils.config import DEFAULT_CARD_ICON
 
-class CardTable(QtWidgets.QTableView):
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.model = CardModel(self)
-        self.setModel(self.model)
 
 class CardItem(QtGui.QStandardItem):
     def __init__(self, card, *args):
@@ -45,9 +40,6 @@ class CardModel(QtGui.QStandardItemModel):
     def __init__(self, parent=None):
         super().__init__(parent)
         #self.rootItem = TreeItem(("ID", "Name", "Mana Cost"))
-        self.setHorizontalHeaderItem(0, QtGui.QStandardItem("Name"))
-        self.setHorizontalHeaderItem(1, QtGui.QStandardItem("ID"))
-        self.setHorizontalHeaderItem(2, QtGui.QStandardItem("Mana Cost"))
 
     def addcards(self, cards):
         self.clear()
@@ -61,8 +53,22 @@ class CardModel(QtGui.QStandardItemModel):
     def threadcardadds(self, cards):
         threading.Thread(target=self.addcards, args=(cards,)).start()
 
+class CardTableModel(CardModel):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.set_header()
+
+    def set_header(self):
+        self.setHorizontalHeaderItem(0, QtGui.QStandardItem("Name"))
+        self.setHorizontalHeaderItem(1, QtGui.QStandardItem("ID"))
+        self.setHorizontalHeaderItem(2, QtGui.QStandardItem("Mana Cost"))
+
+    def threadcardadds(self, cards):
+        threading.Thread(target=self.addtreecards, args=(cards,)).start()
+
     def addtreecards(self, cards):
         self.clear()
+        self.set_header()
         c = 0
         while c < len(cards):
             card = cards[c]
@@ -71,6 +77,12 @@ class CardModel(QtGui.QStandardItemModel):
             mana = CardItem(card, card.mana_cost)
             self.appendRow([name, child, mana])
             c += 1
+
+class CardTable(QtWidgets.QTableView):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.model = CardTableModel(self)
+        self.setModel(self.model)
 
 class CardGallery(QtWidgets.QListView):
     def __init__(self, parent=None, model=None):
@@ -90,6 +102,14 @@ class CardGallery(QtWidgets.QListView):
         self.model = CardModel(self)
         self.setModel(self.model)
 
+    def selected_cards(self, count=1):
+        cols = []
+        for mi in self.selectedIndexes():
+            card = self.model.itemFromIndex(mi).card
+            print('SELECTED CARD ', card.name, ' COUNT ', card.count)
+            card.count = count
+            cols.append(card)
+        return cols
 
     def item(self, row, col=0):
         return self.model.item(row, col)

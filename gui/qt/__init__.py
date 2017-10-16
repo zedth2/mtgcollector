@@ -11,13 +11,26 @@ Author : Zachary Harvey
 import logging
 from os import environ
 from os.path import basename
+
 from PyQt5 import QtCore, QtGui, QtWidgets
-from mtgsdk import Card
+
 from .cardgallery import CardGallery, CardTable
 from .cardetails import CardDetails
 from .dbdisplay import DatabaseDisplay
 from .csvimporter import CSVImporter
 from inventories import sqlitehandler
+from inventories import Collection, Deck, Set, Card
+
+class ActionCollection(QtWidgets.QAction):
+    def __init__(self, collection, callback, *args):
+        super().__init__(*args)
+        self.collection = collection
+        self.setText(self.collection.path + '/' + self.collection.name)
+        self.callback = callback
+        self.triggered.connect(self.clicked)
+
+    def clicked(self):
+        self.callback(self.collection)
 
 class MTGCollections(QtWidgets.QWidget):
     def __init__(self, parent=None, windowflags=0):
@@ -35,6 +48,8 @@ class MTGCollections(QtWidgets.QWidget):
         self.csvimp = CardTable(self)
         #self.csvimp.btnTmp.clicked.connect(self.clickimport)
         self.gal = CardGallery(self)
+        self.gal.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
+        self.gal.customContextMenuRequested.connect(self.rightclick)
 
         self.galcsvholder = QtWidgets.QWidget(self)
         self.galvly = QtWidgets.QVBoxLayout(self)
@@ -104,6 +119,22 @@ class MTGCollections(QtWidgets.QWidget):
         self.mnsCollections.addAction(self.mnsNewColl)
         self.mnsMain.addAction(self.mnsCollections.menuAction())
 
+    def create_right_context(self):
+        if self.databaseinfo.store is None:
+            return QtWidgets.QMenu()
+        self.mnsContext = QtWidgets.QMenu()
+        mnsAddCollections = QtWidgets.QMenu('Collections', self.mnsContext)
+        for c in self.databaseinfo.store.get_all_userbuilds():
+            act = ActionCollection(c, self.add_collection, self.mnsContext)
+            mnsAddCollections.addAction(act)
+        self.mnsContext.addMenu(mnsAddCollections)
+        return self.mnsContext
+
+    def add_collection(self, collection):
+        cards = self.gal.selected_cards()
+        if len(cards):
+            self.databaseinfo.store.add_cards_userbuild(collection, cards)
+
     def addpaths(self):
         items = self.databaseinfo.model.get_all_paths()
         adds = []
@@ -111,6 +142,14 @@ class MTGCollections(QtWidgets.QWidget):
             if not i.startswith('tmp/') or i != 'tmp':
                 adds.append(i)
         self.csvimp.txtCollection.addItems(adds)
+
+    def rightclick(self, *args):
+        cols = self.databaseinfo.selected_collections()
+        for c in cols:
+            if isinstance(c, Set):
+                print('SELECTED A SET')
+        self.create_right_context().popup(self.gal.mapToGlobal(args[0]))
+        print('FUCK', *args)
 
     def clicked(self, *args):
         #print("CLICKED", args)
@@ -126,7 +165,6 @@ class MTGCollections(QtWidgets.QWidget):
 
     def opendatabase(self, dbfile):
         self.databaseinfo.open_database(dbfile)
-
 
     def clickimport(self):
         path = self.databaseinfo.selected_path()
@@ -144,19 +182,21 @@ class MTGCollections(QtWidgets.QWidget):
         self.databaseinfo.store.insert_into_collection(path, name, self.tmps[selected_name])
 
     def click(self, modelindex):
-        if self.databaseinfo.store is not None:
-            item = self.databaseinfo.model.itemFromIndex(modelindex)
-            if item.collection is None: return
-            try:
-                if self.loadtmp(item.collection.path): return
-            except AttributeError: #If it's not a class of type Collection
-                pass
-            try:
-                cards = self.databaseinfo.model.get_cards(modelindex, self.databaseinfo.store)
-                logging.debug('Attempting to load ' + str(type(item.collection)) + ' ' + str(item.collection.name) + ' total cards found ' + str(len(cards)))
-                self.gal.model.threadcardadds(cards)
-            except Exception as ex:
-                print('EXCEPTION ', ex)
+        if self.databaseinfo.store is None:
+            return
+        item = self.databaseinfo.model.itemFromIndex(modelindex)
+        if item.collection is None: return
+        try:
+            if self.loadtmp(item.collection.path): return
+        except AttributeError: #If it's not a class of type Collection
+            pass
+        try:
+            cards = self.databaseinfo.model.get_cards(modelindex, self.databaseinfo.store)
+            logging.debug('Attempting to load ' + str(type(item.collection)) + ' ' + str(item.collection.name) + ' total cards found ' + str(len(cards)))
+            self.gal.model.threadcardadds(cards)
+            self.csvimp.model.threadcardadds(cards)
+        except Exception as ex:
+            print('EXCEPTION ', ex)
 
     def loadtmp(self, path):
         if path.startswith('tmp/'):

@@ -157,13 +157,13 @@ class TableModel(QtGui.QStandardItemModel):
         cards = []
         item = self.itemFromIndex(modelindex)
         if item.collection is None: return cards
-        if isinstance(item.collection, Deck):
-            return item.collection.cards
-        elif isinstance(item.collection, Set):
+        #if isinstance(item.collection, Deck):
+            #return store.get_cards_from_collection(item.collection)
+        if isinstance(item.collection, Set):
             return store.get_all_cards_from_set(item.collection)
         elif isinstance(item.collection, Collection):
+            item.collection.cards = store.get_cards_from_collection(item.collection)
             return item.collection.cards
-
 
 class DatabaseDisplay(QtWidgets.QTreeView):
     def __init__(self, parent=None):
@@ -213,6 +213,12 @@ class DatabaseDisplay(QtWidgets.QTreeView):
         for i in self.selectedIndexes():
             path = self.model.get_path_from_child(self.model.itemFromIndex(i))
         return path
+
+    def selected_collections(self):
+        cols = []
+        for mi in self.selectedIndexes():
+            cols.append(self.model.itemFromIndex(mi).collection)
+        return cols
 
 if __name__ == '__main__':
     pass

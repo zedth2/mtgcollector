@@ -25,15 +25,28 @@ class Collection:
         self.__unqkey = unqkey
         self.type = type
 
-    def get_card_inserts(self):
+    def get_card_inserts(self, cards=[]):
+        if not len(cards):
+            cards = self.cards
         keys = self.__class__.database_keys()
         inserts = []
-        for c in self.cards:
+        for c in cards:
             cur = []
             for k in keys:
                 cur.append(c[k])
             inserts.append(tuple(cur))
         return inserts
+
+    def contains(self, card):
+        reCard = None
+        for c in self.cards:
+            if c == card:
+                reCard = c
+                break
+        return reCard
+
+    def __contains__(self, card):
+        return card in self.cards
 
     @property
     def unqkey(self):
@@ -185,6 +198,9 @@ class Card(_Base):
     def _setId(self, newVal):
         self.__id = str(newVal)
     id = property(_getId, _setId)
+
+    def __eq__(self, right):
+        return self.id == right.id
 
     @staticmethod
     def from_db_values(values, keytypes=MTGCARDS_KEYS_TYPES): #Don't think this static keys types thing is going to work anymore. Once we throw a join in everything is going to go to hell

@@ -114,7 +114,6 @@ class MTGDatabaseHandler:
     def find_cards_exact(self, **kwargs):
         return self.find_by_exact(MTGCARDS_TABLE_NAME, Card, **kwargs)
 
-
     def insert_cards(self, cards):
         if not isinstance(cards, (tuple, list)):
             cards = [cards]
@@ -220,6 +219,25 @@ class MTGDatabaseHandler:
             print(ex)
         self.openDB.commit()
 
+    def add_cards_userbuild(self, collection, cards):
+        if not isinstance(cards, (list, tuple)):
+            cards = [cards]
+        inserts = []
+        for c in cards:
+            incard = collection.contains(c)
+            if incard is None:
+                if c.count < 1:
+                    c.count = 1
+                inserts.append(c)
+            else:
+                print('IN CARD ', incard.name, ' COUNT ', incard.count)
+                print('ADD CARD ', c.name, ' COUNT ', c.count)
+                incard.count += c.count
+                self.openDB.execute('UPDATE ' + collection.tablename + ' SET count = ' + str(incard.count) + ' WHERE id = "' + incard.id + '";')
+        if len(inserts):
+            self.openDB.executemany('INSERT INTO ' + collection.tablename + ' VALUES (' + ', '.join(['?']*len(collection.database_keys())) + ');', collection.get_card_inserts(inserts))
+        self.openDB.commit()
+
     def get_all_userbuilds(self):
         collections = []
         typeindex = list(MTG_USERBUILD_KEYS_TYPES.keys()).index('type')
@@ -228,11 +246,6 @@ class MTGDatabaseHandler:
             collections.append(get_class(r[typeindex]).from_db_values(r))
             collections[-1].cards = self.get_cards_from_collection(collections[-1])
         return collections
-#...End Userbuild handlers
-
-    def create_collection(self, name, path, cards=[]):
-        return self.insert_userbuild(name, path, Collection.collection_type(), Collection, None, cards)
-
 
     def get_cards_from_collection(self, collection): #select * from mtgcards join Pauper using (id);
         if not collection.tablename:
@@ -245,6 +258,11 @@ class MTGDatabaseHandler:
         for c in cursor.fetchall():
             cards.append(Card.from_db_values(c, keytypes))
         return cards
+
+#...End Userbuild handlers
+
+    def create_collection(self, name, path, cards=[]):
+        return self.insert_userbuild(name, path, Collection.collection_type(), Collection, None, cards)
 
     def create_deck(self, name, path, format='kitchen', cards=[]):
         return self.insert_userbuild(name, path, Deck.collection_type(), Deck, format, cards)
