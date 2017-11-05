@@ -20,7 +20,5 @@ def main(*args):
     #Form.opendatabase()
     exit(app.exec_())
 
-
-
 if __name__ == '__main__':
     main(*argv)

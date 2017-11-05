@@ -57,7 +57,8 @@ class Collection:
         if self.unqkey is None:
             raise ValueError('Needs a unqiue key to create a table name')
         if self.__tablename is '':
-            self.__tablename = self.name + str(self.unqkey)
+            table = 'U_' + self.name.replace(' ', '_')
+            self.__tablename = self.name.replace(' ', '_') + str(self.unqkey)
         return self.__tablename
 
     @staticmethod
@@ -173,8 +174,22 @@ class Card(_Base):
         self.legalities = None
         self.image_url = None
         self.language = None
-        self.count = 0
+        self.card_face = None
+        self.__count = 0
         self.board = 'M'
+        self.extras = {}
+
+    def collect_int(self):
+        if not self.collectors_number:
+            return float('inf')
+        digs = []
+        for c in self.collectors_number:
+            if c.isdigit(): digs.append(c)
+        num = ''.join(digs)
+        if num:
+            return int(''.join(digs))
+        else:
+            return float('inf')
 
     def get_db_values(self):
         return super().get_db_values(MTGCARDS_KEYS_TYPES, MTGCARDS_PRIMARY)
@@ -198,6 +213,16 @@ class Card(_Base):
     def _setId(self, newVal):
         self.__id = str(newVal)
     id = property(_getId, _setId)
+
+    def _getCount(self):
+        return self.__count
+
+    def _setCount(self, cnt):
+        if cnt is None or cnt == '':
+            self.__count = 0
+        else:
+            self.__count = int(cnt)
+    count = property(_getCount, _setCount)
 
     def __eq__(self, right):
         return self.id == right.id
@@ -240,13 +265,16 @@ class Card(_Base):
         return reCard
 
     @staticmethod
-    def from_scryfall(scrydict):
+    def from_scryfall(scrydict, skip_id=False):
         reCard = Card()
         reCard.multiverse_id = scrydict.get('multiverse_id', None)
         reCard.collectors_number = scrydict.get('collector_number', None)
         reCard.name = scrydict.get('name', None)
         reCard.set_code = scrydict.get('set', None)
-        reCard.color = [SCRYFALL_COLORS[c] for c in scrydict['colors']]
+        try:
+            reCard.color = [SCRYFALL_COLORS[c] for c in scrydict['colors']]
+        except KeyError:
+            logging.error('ERROR ON ' + scrydict.get('name', '') + ' Set ' + scrydict.get('set', ''))
         reCard.mana_cost = scrydict.get('mana_cost', None)
         reCard.cmc = scrydict.get('cmc', None)
         reCard.rarity = scrydict.get('rarity', None)
@@ -264,10 +292,31 @@ class Card(_Base):
         #reCard.foreign_names = None
         #reCard.rulings = scrydict.rulings
         reCard.legalities = scrydict.get('legalities', None)
-        reCard.image_url = scrydict.get('image_uri', None)
-        reCard.id = reCard.create_id()
+        if 'image_uri' in scrydict:
+            reCard.image_url = scrydict.get('image_uri', None)
+        else:
+            if 'image_uris' in scrydict:
+                reCard.image_url = scrydict['image_uris'].get('normal', None)
+        if not skip_id:
+            reCard.id = reCard.create_id()
         #reCard.language = card.language
         return reCard
+
+    @staticmethod
+    def from_flip_scryfall(scrydict):
+        if 'card_faces' not in scrydict:
+            return [Card.from_scryfall(scrydict)]
+        reCards = [Card.from_scryfall(scrydict['card_faces'][0], True), Card.from_scryfall(scrydict['card_faces'][1], True)]
+        reCards[0].collectors_number = reCards[1].collectors_number = scrydict.get('collector_number', None)
+        reCards[0].multiverse_id = scrydict['multiverse_ids'][0]
+        reCards[1].multiverse_id = scrydict['multiverse_ids'][1]
+        reCards[0].id = reCards[0].create_id()
+        reCards[1].id = reCards[1].create_id()
+        reCards[0].card_face = reCards[1].id
+        reCards[1].card_face = reCards[0].id
+        reCards[0].cmc = reCards[1].cmc = scrydict.get('cmc', None)
+        reCards[0].layout = reCards[1].layout = scrydict.get('layout', None)
+        reCards[0].legalities = reCards[1].legalities = scrydict.get('legalities', None)
 
 class Set(_Base):
     def __init__(self):

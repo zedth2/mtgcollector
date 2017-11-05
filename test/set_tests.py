@@ -10,6 +10,8 @@ Author : Zachary Harvey
 '''
 from os.path import exists
 from time import sleep
+import json
+
 import pytest
 
 import mtgsdk
@@ -19,11 +21,12 @@ from inventories.externalapis import mtgsdkreader
 from inventories.externalapis import scryfalldealer
 from inventories import Card
 from utils.csvhandlers import tcgplayer_csv_to_cards
+from utils import logsetup
 
 store = None
 DB_TEST_FILE = './test/test.mtg'
 
-
+@pytest.mark.skip
 def test_mtgsdk_conversion():
     mtgsdk_dict = {'code': 'UNH', 'name': 'Unhinged', 'type': 'un', 'border': 'silver', 'mkm_id': 59, 'mkm_name': 'Unhinged', 'release_date': '2004-11-20', 'gatherer_code': None, 'magic_cards_info_code': 'uh', 'booster': ['rare', 'uncommon', 'uncommon', 'uncommon', 'common', 'common', 'common', 'common', 'common', 'common', 'common', 'common', 'common', 'common', 'land'], 'old_code': None, 'block': None, 'online_only': None}
     s = mtgsdk.Set(mtgsdk_dict)
@@ -92,10 +95,18 @@ def test_add_collection(store):
 
 #@pytest.mark.skip
 def test_tcgplayer_csv_reads(store):
-    cards = tcgplayer_csv_to_cards('./test/pauper.csv',  store.all_set_codes())
+    cards = tcgplayer_csv_to_cards('/home/zac/Downloads/TCGplayerCardList (1).csv',  store.all_set_codes())
     suc, fails = store.find_cards_from_cards_external(cards)
+    for f in fails:
+        print('FAILED Name: ', f.name, ' Set Code: ', f.set_code)
     assert 0 == len(fails)
     store.create_deck('Pauper', 'decks/pauper', 'pauper', suc)
+
+@pytest.mark.skip
+def test_single_load():
+    x = json.load(open('./test/support/single.json'))
+    card = Card.from_scryfall(x)
+    print(card.get_db_values())
 
 @pytest.mark.skip
 def test_scryfall():

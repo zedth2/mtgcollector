@@ -13,6 +13,15 @@ from datetime import datetime
 from json import dumps, loads
 from collections import OrderedDict
 
+TYPE_MAP_Py_To_SQL = {'str': 'TEXT',
+                    'epoch': 'INTEGER',
+                    'csv' : 'TEXT',
+                    'json' : 'TEXT',
+                    'bool' : 'BOOLEAN',
+                    'int' : 'INTEGER',
+                    'real' : 'REAL',
+                   }
+
 CONVERSION_TO_Py = {'str': lambda k, v: str(v),
                     'epoch': lambda k, v: datetime.fromtimestamp(v),
                     'csv' : lambda k, v: v.split(','),
@@ -31,9 +40,19 @@ CONVERSION_TO_SQL = {'str': lambda k, v: str(v),
                     'real' : lambda k, v: v,
                    }
 
+def table_sql(key_types, tablename, primkey, autoinc=False, extras=''):
+    sql = 'CREATE TABLE {} ('.format(tablename)
+    prim = ' PRIMARY KEY' + (' AUTOINCREMENT' if autoinc else '')
+    for k, t in key_types.items():
+        types = TYPE_MAP_Py_To_SQL[t]
+        if primkey == k:
+            types += prim
+        sql += '"{}" {}, '.format(k, types)
+    return sql + extras + ');'
+
 MTGCARDS_TABLE_NAME = 'mtgcards'
 MTGCARDS_KEYS_TYPES = OrderedDict([
-                ("id", 'str'),
+                ("id", 'str' ),
                 ("multiverse_id", 'int' ),
                 ("collectors_number", 'str' ),
                 ("name", 'str' ),
@@ -45,7 +64,6 @@ MTGCARDS_KEYS_TYPES = OrderedDict([
                 ("power", 'str' ),
                 ("toughness", 'str' ),
                 ("loyalty", 'str' ),
-                ("flavor_text", 'str' ),
                 ("type_line", 'str' ),
                 ("oracle_text", 'str' ),
                 ("artist", 'str' ),
@@ -53,44 +71,40 @@ MTGCARDS_KEYS_TYPES = OrderedDict([
                 ("types", 'csv' ),
                 ("subtypes", 'csv' ),
                 ("supertypes", 'csv' ),
-                ("foreign_names", 'json' ),
-                ("rulings", 'json' ),
                 ("legalities", 'json' ),
-                ("image_url", 'str' )])
+                ("image_url", 'str' ),
+                ("extras", 'str'),])
                 #("language", 'str' )])
 MTGCARDS_PRIMARY = tuple(MTGCARDS_KEYS_TYPES.keys())[0] #--A hash being sha1(card_name, set_name, multiverse_id, collectors_number)
-MTGCARDS_SQL = '''CREATE TABLE ''' + MTGCARDS_TABLE_NAME + '''
-                (
-                "id" TEXT PRIMARY KEY,
-                "multiverse_id" INTEGER,
-                "collectors_number" TEXT,
-                "name" TEXT,
-                "set_code" TEXT COLLATE NOCASE,
-                "color" TEXT,
-                "mana_cost" TEXT,
-                "cmc" REAL,
-                "rarity" TEXT,
-                "power" TEXT,
-                "toughness" TEXT,
-                "loyalty" TEXT,
-                "flavor_text" TEXT,
-                "type_line" TEXT,
-                "oracle_text" TEXT,
-                "artist" TEXT,
-                "layout" TEXT,
-                "types" TEXT,
-                "subtypes" TEXT,
-                "supertypes" TEXT,
-                "foreign_names" TEXT,
-                "rulings" TEXT,
-                "legalities" TEXT,
-                "image_url" TEXT,
-                FOREIGN KEY("set_code") REFERENCES mtgsets("set_code")
-                )
-'''
+MTGCARDS_EXTRA_SQL = 'FOREIGN KEY("set_code") REFERENCES mtgsets("set_code")'
+MTGCARDS_SQL = table_sql(MTGCARDS_KEYS_TYPES, MTGCARDS_TABLE_NAME, MTGCARDS_PRIMARY, False, MTGCARDS_EXTRA_SQL)
+#'''CREATE TABLE ''' + MTGCARDS_TABLE_NAME + '''
+                #(
+                #"id" TEXT PRIMARY KEY,
+                #"multiverse_id" INTEGER,
+                #"collectors_number" TEXT,
+                #"name" TEXT,
+                #"set_code" TEXT COLLATE NOCASE,
+                #"color" TEXT,
+                #"mana_cost" TEXT,
+                #"cmc" REAL,
+                #"rarity" TEXT,
+                #"power" TEXT,
+                #"toughness" TEXT,
+                #"loyalty" TEXT,
+                #"type_line" TEXT,
+                #"artist" TEXT,
+                #"layout" TEXT,
+                #"types" TEXT,
+                #"subtypes" TEXT,
+                #"supertypes" TEXT,
+                #"legalities" TEXT,
+                #"image_url" TEXT,
+                #"card_face" TEXT,
+                #"extras" TEXT,
 
 MTGSETS_TABLE_NAME = 'mtgsets'
-MTGSETS_KEYS = ('code', 'name', 'block', 'border', 'gatherer_code', 'release_date', 'booster', 'online_only')
+#MTGSETS_KEYS = ('code', 'name', 'block', 'border', 'gatherer_code', 'release_date', 'booster', 'online_only')
 MTGSETS_KEYS_TYPES = OrderedDict([
                     ("set_code", 'str' ),
                     ("name", 'str' ),
@@ -142,7 +156,7 @@ COLLECTION_KEYS_TYPES = OrderedDict([('id', 'str'),
                                     ('count', 'int'),])
 
 def collection_sql(tablename):
-    return '''CREATE TABLE {}
+    return '''CREATE TABLE "{}"
                 (
                 "id" TEXT PRIMARY KEY,
                 "count" INTEGER,
@@ -155,10 +169,14 @@ DECK_KEYS_TYPES = OrderedDict([('id', 'str'),
                                 ('board', 'str'),])
 
 def deck_sql(tablename):
-    return '''CREATE TABLE {}
+    return '''CREATE TABLE "{}"
                 (
                 "id" TEXT PRIMARY KEY,
                 "count" INTEGER,
                 "board" TEXT,
                 FOREIGN KEY("id") REFERENCES {}("id")
                 )'''.format(tablename, MTGCARDS_TABLE_NAME)
+
+
+def insert_statement(tablename, key_types):
+    return ('INSERT INTO "{tablename}" VALUES ('+', '.join(['?']*len(key_types))+');').format(tablename=tablename)

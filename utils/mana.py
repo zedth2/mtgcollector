@@ -102,7 +102,7 @@ def downloadimg(card):
 
     files = glob(path + '*')
     if len(files) and exists(files[0]):
-        logging.info('Local icon found: ' + files[0])
+        #logging.info('Local icon found: ' + files[0])
         return files[0]
     else:
         if card.image_url is None:
@@ -116,3 +116,19 @@ def downloadimg(card):
         with open(path + ext, 'wb') as f:
             f.write(bits)
     return path + ext
+
+def downloadsvg(set):
+    path = config.CARD_IMAGE_LOCATION + '/' + set.set_code + '.svg'
+    files = glob(path)
+    if len(files) and exists(files[0]):
+        #logging.info('Local icon found: ' + files[0])
+        return files[0]
+    else:
+        if set.icon_svg_uri is None:
+            logging.error('No icon for ' + set.name + ' ' + set.set_code)
+            return None
+        logging.info('Downloading image from ' + set.icon_svg_uri)
+        bits = request.urlopen(set.icon_svg_uri).read()
+        with open(path, 'wb') as f:
+            f.write(bits)
+    return path

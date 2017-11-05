@@ -18,6 +18,7 @@ class CollectionItem(QtGui.QStandardItem):
     def __init__(self, collection=None, *args):
         super().__init__(*args)
         self.collection = collection
+        self.setEditable(False)
 
 class TableModel(QtGui.QStandardItemModel):
     def __init__(self, parent=None):
@@ -32,6 +33,15 @@ class TableModel(QtGui.QStandardItemModel):
         magic = self.item_from_text('Magic')
         for s in sets:
             magic.appendRow(CollectionItem(s, s.name))
+
+    def add_grouped_sets(self, sets):
+        magic = self.item_from_text('Magic')
+        for t, a in sets.items():
+            stype = CollectionItem(None, t)
+            a.sort(key=lambda a: a.name.lower())
+            for s in a:
+                stype.appendRow(CollectionItem(s, s.name))
+            magic.appendRow(stype)
 
     def addtables(self, tables, parent=None):
         self.clear()
@@ -57,6 +67,12 @@ class TableModel(QtGui.QStandardItemModel):
             cnt += 1
         return reLst
 
+    def add_csv_tmp_collection(self, name):
+        return self.add_collections([Collection(name, 'tmp/csv/', type='CSV_TEMP')])
+
+    def add_tmp_collection(self, name):
+        return self.add_collections([Collection(name, 'tmp/', type='TEMP')])
+
     def item_from_text(self, text):
         cnt = 0
         re = None
@@ -78,14 +94,14 @@ class TableModel(QtGui.QStandardItemModel):
             c += 1
         return None
 
-    def add_path(self, path):
+    def add_path(self, path, collection=None):
         s = path.split('/')
         items = self.findItems(s[0])
         item = None
         if 0 < len(items) and items[0].parent() is None:
             item = items[0]
         else:
-            item = CollectionItem(None, s[0])
+            item = CollectionItem(collection, s[0])
             item.setEditable(False)
             self.appendRow(item)
         if len(s) < 2:
@@ -95,7 +111,7 @@ class TableModel(QtGui.QStandardItemModel):
                 continue
             i = self.check_children(item, p)
             if i is None:
-                i = CollectionItem(None, p)
+                i = CollectionItem(collection, p)
                 i.setEditable(False)
                 item.appendRow(i)
             item = i
@@ -184,12 +200,13 @@ class DatabaseDisplay(QtWidgets.QTreeView):
         self.store.open_file(dbfile)
         #self.model.addtables(self.store.gettables())
         self.model.add_collections(self.store.get_all_userbuilds())
-        self.model.add_sets(self.store.all_sets())
+        #self.model.add_sets(self.store.all_sets())
+        self.model.add_grouped_sets(self.store.get_all_sets_by_type())
 
     def add_collection(self, path, name, skipdb=False, select=True):
         if not skipdb and not len(self.store.get_collection(path, name)):
             self.store.create_new_collection(path, name)
-        item = self.model.add_collections(self.store.get_all_userbuilds())
+        #item = self.model.add_collections(self.store.get_all_userbuilds())
         if select and item is not None:
             self.scrollTo(item.index())
             self.selectionModel().select(item.index(), QtCore.QItemSelectionModel.Select)

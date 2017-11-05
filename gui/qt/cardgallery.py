@@ -9,7 +9,7 @@ Author : Zachary Harvey
 
 '''
 import threading
-
+import logging
 from PyQt5 import QtCore, QtGui, QtWidgets
 from mtgsdk import Card
 
@@ -40,18 +40,32 @@ class CardModel(QtGui.QStandardItemModel):
     def __init__(self, parent=None):
         super().__init__(parent)
         #self.rootItem = TreeItem(("ID", "Name", "Mana Cost"))
+        self.stopper = threading.Event()
+        self.curThread = None
 
     def addcards(self, cards):
         self.clear()
         c = 0
-        while c < len(cards):
-            card = CardItem(cards[c])
-            card.getimage()
-            self.appendRow(card)
+        cards.sort(key=lambda c: int(c.collect_int()))
+        while c < len(cards) and not self.stopper.is_set():
+            self.add_card(cards[c])
             c += 1
+        #self.curThread.join(.5)
+        self.curThread = None
+
+    def add_card(self, card):
+        card = CardItem(card)
+        card.getimage()
+        self.appendRow(card)
 
     def threadcardadds(self, cards):
-        threading.Thread(target=self.addcards, args=(cards,)).start()
+        if self.curThread is not None:
+            self.stopper.set()
+            self.curThread.join()
+        self.stopper.clear()
+        self.clear()
+        self.curThread = threading.Thread(target=self.addcards, args=(cards,))
+        self.curThread.start()
 
 class CardTableModel(CardModel):
     def __init__(self, parent=None):
@@ -64,19 +78,26 @@ class CardTableModel(CardModel):
         self.setHorizontalHeaderItem(2, QtGui.QStandardItem("Mana Cost"))
 
     def threadcardadds(self, cards):
-        threading.Thread(target=self.addtreecards, args=(cards,)).start()
-
-    def addtreecards(self, cards):
         self.clear()
         self.set_header()
-        c = 0
-        while c < len(cards):
-            card = cards[c]
-            child = CardItem(card, card.id)
-            name = CardItem(card, card.name)
-            mana = CardItem(card, card.mana_cost)
-            self.appendRow([name, child, mana])
-            c += 1
+        super().threadcardadds(cards)
+
+    def add_card(self, card):
+        child = CardItem(card, card.id)
+        name = CardItem(card, card.name)
+        mana = CardItem(card, card.mana_cost)
+        self.appendRow([name, child, mana])
+
+    #def addtreecards(self, cards):
+        #self.clear()
+        #self.set_header()
+        #c = 0
+        #while c < len(cards) and not self.stopper.is_set():
+            #card = cards[c]
+
+            #c += 1
+        #self.curThread.join(.5)
+        #self.curThread = None
 
 class CardTable(QtWidgets.QTableView):
     def __init__(self, parent=None):

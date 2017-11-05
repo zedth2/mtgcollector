@@ -16,8 +16,11 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 
 from .cardgallery import CardGallery, CardTable
 from .cardetails import CardDetails
+from .cardprev import CardPreview
 from .dbdisplay import DatabaseDisplay
 from .csvimporter import CSVImporter
+from .setinfo import SetInfo
+from .collectioninfo import CollectionInfo
 from inventories import sqlitehandler
 from inventories import Collection, Deck, Set, Card
 
@@ -28,6 +31,7 @@ class ActionCollection(QtWidgets.QAction):
         self.setText(self.collection.path + '/' + self.collection.name)
         self.callback = callback
         self.triggered.connect(self.clicked)
+
 
     def clicked(self):
         self.callback(self.collection)
@@ -44,9 +48,9 @@ class MTGCollections(QtWidgets.QWidget):
         self.databaseinfo.clicked.connect(self.click)
         self.mainhlyo.addWidget(self.databaseinfo)
 
-        #self.csvimp = CSVImporter(self)
-        self.csvimp = CardTable(self)
-        #self.csvimp.btnTmp.clicked.connect(self.clickimport)
+        self.csvimp = CSVImporter(self)
+        #self.csvimp = CardTable(self)
+        self.csvimp.btnTmp.clicked.connect(self.clickimport)
         self.gal = CardGallery(self)
         self.gal.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
         self.gal.customContextMenuRequested.connect(self.rightclick)
@@ -55,13 +59,29 @@ class MTGCollections(QtWidgets.QWidget):
         self.galvly = QtWidgets.QVBoxLayout(self)
         self.galvly.addWidget(self.gal)
         self.galvly.addWidget(self.csvimp)
+        self.csvimp.setVisible(False)
         self.galcsvholder.setLayout(self.galvly)
         self.mainhlyo.addWidget(self.galcsvholder)
         #self.gal.model.threadcardadds(self.getStuff())
         #self.mainhlyo.addWidget(self.gal)
         self.gal.clicked['QModelIndex'].connect(self.clicked)
-        self.det = CardDetails(self)
-        self.mainhlyo.addWidget(self.det)
+
+        holder = QtWidgets.QWidget()
+        self.infolyv = QtWidgets.QVBoxLayout(self)
+        holder.setLayout(self.infolyv)
+        self.det = CardPreview(self)
+
+
+        self.setinfo = SetInfo(self)
+        self.cinfo = CollectionInfo(self)
+        self.setinfo.btnDownload.clicked.connect(self.downloadset)
+
+        self.infolyv.addWidget(self.setinfo)
+        self.infolyv.addWidget(self.cinfo)
+        self.infolyv.addWidget(self.det)
+        self.cinfo.setVisible(False)
+
+        self.mainhlyo.addWidget(holder)
 
         self.create_menu()
 
@@ -69,6 +89,12 @@ class MTGCollections(QtWidgets.QWidget):
         QtCore.QMetaObject.connectSlotsByName(self)
 
         self.tmps = {}
+
+        try:
+            self.databaseinfo.open_database('/home/zac/Documents/Code/PythonFunctions/projects/mtg/test/test.mtg')
+        except Exception as e:
+            print('Error opening ', e)
+
 
     def create_menu(self):
         self.mnsMain = QtWidgets.QMenuBar(self)
@@ -135,11 +161,16 @@ class MTGCollections(QtWidgets.QWidget):
         if len(cards):
             self.databaseinfo.store.add_cards_userbuild(collection, cards)
 
+    def downloadset(self, checked=False):
+        if self.setinfo.set is not None:
+            logging.debug('Loading ' + str(self.setinfo.set.__dict__))
+            self.databaseinfo.store.get_all_cards_from_set_external(self.setinfo.set)
+
     def addpaths(self):
         items = self.databaseinfo.model.get_all_paths()
         adds = []
         for i in items:
-            if not i.startswith('tmp/') or i != 'tmp':
+            if not (i.startswith('tmp/') or i == 'tmp' or i.startswith('Magic/') or i == 'Magic'):
                 adds.append(i)
         self.csvimp.txtCollection.addItems(adds)
 
@@ -147,9 +178,8 @@ class MTGCollections(QtWidgets.QWidget):
         cols = self.databaseinfo.selected_collections()
         for c in cols:
             if isinstance(c, Set):
-                print('SELECTED A SET')
+                logging.debug('SELECTED A SET')
         self.create_right_context().popup(self.gal.mapToGlobal(args[0]))
-        print('FUCK', *args)
 
     def clicked(self, *args):
         #print("CLICKED", args)
@@ -167,41 +197,54 @@ class MTGCollections(QtWidgets.QWidget):
         self.databaseinfo.open_database(dbfile)
 
     def clickimport(self):
-        path = self.databaseinfo.selected_path()
-        base = path.rsplit('/',1)[-1]
-        if not path.startswith('tmp/'):
-            return
+        cols = self.databaseinfo.selected_collections()
+        if 1 != len(cols) or cols[0].type != 'CSV_TEMP':
+            return False
 
-        self.databaseinfo.store.insertcards(self.tmps[base])
-        wpath = self.csvimp.get_path().rsplit('/', 1)
-        path = wpath[0]
-        name = wpath[1]
-        wpath = self.databaseinfo.selected_path().rsplit('/', 1)
-        selected_path = wpath[0]
-        selected_name = wpath[1]
-        self.databaseinfo.store.insert_into_collection(path, name, self.tmps[selected_name])
+        self.databaseinfo.store.insert_cards_ignore_exception(self.tmps[cols[0].name])
+        cols[0].type = 'COLLECTION'
+        self.databaseinfo.store.insert_userbuild_collection(cols[0], self.tmps[cols[0].name])
+
+    def load_description(self, collection):
+        if isinstance(collection, Collection):
+            self.cinfo.setVisible(True)
+            self.setinfo.setVisible(False)
+        elif isinstance(collection, Set):
+            self.cinfo.setVisible(False)
+            self.setinfo.setVisible(True)
+
 
     def click(self, modelindex):
         if self.databaseinfo.store is None:
             return
         item = self.databaseinfo.model.itemFromIndex(modelindex)
         if item.collection is None: return
+        self.load_description(item.collection)
         try:
-            if self.loadtmp(item.collection.path): return
+            if self.loadtmp(item.collection.path, item.collection.name): return
         except AttributeError: #If it's not a class of type Collection
             pass
         try:
             cards = self.databaseinfo.model.get_cards(modelindex, self.databaseinfo.store)
             logging.debug('Attempting to load ' + str(type(item.collection)) + ' ' + str(item.collection.name) + ' total cards found ' + str(len(cards)))
             self.gal.model.threadcardadds(cards)
-            self.csvimp.model.threadcardadds(cards)
+            #self.csvimp.model.threadcardadds(cards)
+            if isinstance(item.collection, Set):
+                self.setinfo.load_set(item.collection)
         except Exception as ex:
             print('EXCEPTION ', ex)
 
-    def loadtmp(self, path):
-        if path.startswith('tmp/'):
-            if path.split('/')[-1] in self.tmps:
-                self.gal.model.threadcardadds(self.tmps[path.split('/')[-1]])
+    def loadtmp(self, path, name):
+        logging.debug('Loading path '+path)
+        split = path.split('/')
+        if 'tmp' == split[0]:
+            if name in self.tmps:
+                self.gal.model.threadcardadds(self.tmps[name])
+                if len(split) >= 2:
+                    if 'csv' == split[1]:
+                        self.csvimp.setVisible(True)
+                else:
+                    self.csvimp.setVisible(False)
                 return True
         return False
 
@@ -215,15 +258,15 @@ class MTGCollections(QtWidgets.QWidget):
         pass
 
     def importcsv(self, *args):
-        f = QtWidgets.QFileDialog.getOpenFileName(self, 'Import CSV', environ['HOME']+'/Documents/Code/PythonFunctions/projects/mtg/inventories')
+        f = QtWidgets.QFileDialog.getOpenFileName(self, 'Import CSV', environ['HOME']+'/Downloads')
         if '' == f[0]:
             return
         base = basename(f[0])
         if base in self.tmps: #If it's already being shown we should also select it
             return
-        self.databaseinfo.add_collection('tmp/', base, True)
+        self.databaseinfo.model.add_csv_tmp_collection(base)
         self.addpaths()
-        self.tmps[base] = self.databaseinfo.store.csvr(f[0])
+        self.tmps[base] = self.databaseinfo.store.tcgplayer_csv_import(f[0])
 
     def exportcsv(self, *args):
         pass

@@ -17,7 +17,7 @@ from . import Set, Card, Collection, Deck, get_class
 from .sqlments import *
 from .externalapis.mtgsdkreader import where_card, where_set, find_many_cards
 from .externalapis import scryfalldealer
-
+from utils.csvhandlers import tcgplayer_csv_to_cards
 class MTGDatabaseHandler:
     def __init__(self):
         self.__dbfile = ''
@@ -59,12 +59,14 @@ class MTGDatabaseHandler:
         reSets = []
         return self.get_items(cur.execute('select * from ' + table + ' where ' + self.where_like_statement(**kwargs)), item_type)
 
-    def find_by_exact(self, table, item_type, **kwargs):
+    def find_by_exact(self, table, item_type, orderby=None, **kwargs):
         wheres = []
         for k, v in kwargs.items():
-            wheres.append('"' + k + '" = "' + v + '"')
+            wheres.append('"' + k + '" =:' + k + '')
         statement = 'SELECT * FROM '+table + ' WHERE ' + ' and '.join(wheres) + '; '
-        return self.get_items(self.openDB.execute(statement), item_type)
+        if orderby is not None:
+            statement = 'SELECT * FROM '+table + ' WHERE ' + ' and '.join(wheres) + ' ORDER BY ' + orderby + ' DESC ; '
+        return self.get_items(self.openDB.execute(statement, kwargs), item_type)
 
     def get_items(self, cursor, item_type):
         sets = []
@@ -100,27 +102,60 @@ class MTGDatabaseHandler:
             sets = [sets]
         inserts = [s.get_db_values() for s in sets]
         cursor = self.openDB.cursor()
-        cursor.executemany('INSERT INTO ' + MTGSETS_TABLE_NAME + ' VALUES ('+', '.join(['?']*len(MTGSETS_KEYS_TYPES.keys())) + ');', inserts)
+        cursor.executemany('INSERT INTO "' + MTGSETS_TABLE_NAME + '" VALUES ('+', '.join(['?']*len(MTGSETS_KEYS_TYPES.keys())) + ');', inserts)
         self.openDB.commit()
 
-    def get_all_cards_from_set(self, set):
-        return self.find_cards_exact(set_code=set.set_code)
+    def get_all_cards_from_set(self, set, orderby='collectors_number'):
+        return self.find_cards_exact(orderby=orderby, set_code=set.set_code)
+
+    def get_all_cards_from_set_external(self, set):
+        cards = self.get_all_cards_from_set(set)
+        if len(cards) != set.card_count:
+            cards = scryfalldealer.find_cards_by_set(set)
+            fails = self.insert_cards_ignore_exception(cards)
+            if len(fails):
+                logging.error(str(len(fails)) + ' cards failed to be inserted and will be ignored')
+        return cards
+
+    def get_all_sets_by_type(self):
+        reDict = {}
+        for s in self.all_sets():
+            try:
+                reDict[s.set_type].append(s)
+            except KeyError:
+                reDict[s.set_type] = [s]
+        return reDict
 #..End Set handlers
 
 #Card handlers Begin...
-    def find_cards_by_like(self, **kwargs):
-        return self.find_by_like(MTGCARDS_TABLE_NAME, Card, **kwargs)
+    def find_cards_by_like(self, orderby=None, **kwargs):
+        return self.find_by_like(MTGCARDS_TABLE_NAME, Card, orderby=orderby, **kwargs)
 
-    def find_cards_exact(self, **kwargs):
-        return self.find_by_exact(MTGCARDS_TABLE_NAME, Card, **kwargs)
+    def find_cards_exact(self, orderby=None, **kwargs):
+        return self.find_by_exact(MTGCARDS_TABLE_NAME, Card, orderby=orderby, **kwargs)
 
     def insert_cards(self, cards):
         if not isinstance(cards, (tuple, list)):
             cards = [cards]
         inserts = [c.get_db_values() for c in cards]
         cursor = self.openDB.cursor()
-        cursor.executemany('INSERT INTO ' + MTGCARDS_TABLE_NAME + ' VALUES (' + ', '.join(['?']*len(MTGCARDS_KEYS_TYPES.keys())) + ');', inserts)
+        cursor.executemany('INSERT INTO "' + MTGCARDS_TABLE_NAME + '" VALUES (' + ', '.join(['?']*len(MTGCARDS_KEYS_TYPES.keys())) + ');', inserts)
         self.openDB.commit()
+
+    def insert_cards_ignore_exception(self, cards):
+        if not isinstance(cards, (tuple, list)):
+            cards = [cards]
+        fails = []
+        cursor = self.openDB.cursor()
+        for c in cards:
+            i = c.get_db_values()
+            try:
+                cursor.execute('INSERT INTO "' + MTGCARDS_TABLE_NAME + '" VALUES (' + ', '.join(['?']*len(MTGCARDS_KEYS_TYPES.keys())) + ');', i)
+            except sql.DatabaseError as ex:
+                logging.exception('Can not insert card %s %s', c.name, c.set_code)
+                fails.append(c)
+        self.openDB.commit()
+        return fails
 
     def find_cards_by_like_to_external(self, **kwargs):
         '''
@@ -180,20 +215,35 @@ class MTGDatabaseHandler:
         success, fails = self.find_cards_from_cards(cards)
         if 0 < len(fails):
             #self.insert_cards(find_many_cards(fails))
-            self.insert_cards(scryfalldealer.find_cards_by_name(fails))
+            self.insert_cards_ignore_exception(scryfalldealer.find_cards_by_name(fails))
             success, fails = self.find_cards_from_cards(cards)
         return success, fails
+
+    def tcgplayer_csv_import(self, csvFile):
+        cards = tcgplayer_csv_to_cards(csvFile,  self.all_set_codes())
+        suc, fails = self.find_cards_from_cards_external(cards)
+        for f in fails:
+            print('FAILED Name: ', f.name, ' Set Code: ', f.set_code)
+        return suc + fails
+
 #...End Card handlers
 
 #Userbuild handlers Begin...
+    def insert_userbuild_collection(self, collection, cards=[]):
+        format = None
+        if hasattr(collection, 'format'): format = collection.format
+        return self.insert_userbuild(collection.name, collection.path, collection.type, type(collection), format, cards)
+
     def insert_userbuild(self, name, path, type, retype, format=None, cards=[]):
         cursor = self.openDB.cursor()
-        cursor.execute('INSERT INTO ' + MTG_USERBUILD_TABLE_NAME + ' VALUES (' + ', '.join(['?']*len(MTG_USERBUILD_KEYS_TYPES.keys())) + ');', (None, path, name, format, type, None))
+        cursor.execute('INSERT INTO "' + MTG_USERBUILD_TABLE_NAME + '" VALUES (' + ', '.join(['?']*len(MTG_USERBUILD_KEYS_TYPES.keys())) + ');', (None, path, name, format, type, None))
         rowid = cursor.lastrowid
         self.openDB.commit()
         coll = self.get_userbuild(name, path, retype, rowid)[0]
-        cursor.execute('UPDATE ' + MTG_USERBUILD_TABLE_NAME + ' SET tablename = "' + coll.tablename + '" WHERE unqkey = ' + str(coll.unqkey) + ';')
-        cursor.execute(retype.sql_create_table()(coll.tablename))
+        cursor.execute('UPDATE "' + MTG_USERBUILD_TABLE_NAME + '" SET tablename = "' + coll.tablename + '" WHERE unqkey = ' + str(coll.unqkey) + ';')
+        table = retype.sql_create_table()(coll.tablename)
+        logging.debug('Excuting ' + table)
+        cursor.execute(table)
         self.openDB.commit()
         coll.cards = cards
         self.insert_cards_userbuild(coll)
@@ -203,9 +253,9 @@ class MTGDatabaseHandler:
         reLst = []
         cols = []
         if unqkey is None:
-            cols = self.openDB.execute('SELECT * FROM ' + MTG_USERBUILD_TABLE_NAME + ' WHERE "name" = :name AND "path" = :path AND type = :collection', {"name":name, "path": path, "collection": retype.collection_type()}).fetchall()
+            cols = self.openDB.execute('SELECT * FROM "' + MTG_USERBUILD_TABLE_NAME + '" WHERE "name" = :name AND "path" = :path AND type = :collection', {"name":name, "path": path, "collection": retype.collection_type()}).fetchall()
         else:
-            cols = self.openDB.execute('SELECT * FROM ' + MTG_USERBUILD_TABLE_NAME + ' WHERE "name" = :name AND "path" = :path AND type = :collection AND unqkey = :unqkey', {"name":name, "path": path, "collection": retype.collection_type(), "unqkey": unqkey}).fetchall()
+            cols = self.openDB.execute('SELECT * FROM "' + MTG_USERBUILD_TABLE_NAME + '" WHERE "name" = :name AND "path" = :path AND type = :collection AND unqkey = :unqkey', {"name":name, "path": path, "collection": retype.collection_type(), "unqkey": unqkey}).fetchall()
         for c in cols:
             reLst.append(retype.from_db_values(c))
         return reLst
@@ -214,7 +264,7 @@ class MTGDatabaseHandler:
         inserts = collection.get_card_inserts()
         cursor = self.openDB.cursor()
         try:
-            cursor.executemany('INSERT INTO ' + collection.tablename + ' VALUES (' + ', '.join(['?']*len(collection.__class__.database_keys())) + ');', inserts)
+            cursor.executemany(insert_statement(collection.tablename, collection.__class__.database_keytypes()), inserts)
         except sql.IntegrityError as ex:
             print(ex)
         self.openDB.commit()
@@ -233,9 +283,9 @@ class MTGDatabaseHandler:
                 print('IN CARD ', incard.name, ' COUNT ', incard.count)
                 print('ADD CARD ', c.name, ' COUNT ', c.count)
                 incard.count += c.count
-                self.openDB.execute('UPDATE ' + collection.tablename + ' SET count = ' + str(incard.count) + ' WHERE id = "' + incard.id + '";')
+                self.openDB.execute('UPDATE "' + collection.tablename + '" SET count = ' + str(incard.count) + ' WHERE id = "' + incard.id + '";')
         if len(inserts):
-            self.openDB.executemany('INSERT INTO ' + collection.tablename + ' VALUES (' + ', '.join(['?']*len(collection.database_keys())) + ');', collection.get_card_inserts(inserts))
+            self.openDB.executemany(insert_statement(collection.tablename, collection.__class__.database_keytypes()), collection.get_card_inserts(inserts))
         self.openDB.commit()
 
     def get_all_userbuilds(self):
@@ -253,7 +303,7 @@ class MTGDatabaseHandler:
         keytypes = {}
         keytypes.update(MTGCARDS_KEYS_TYPES)
         keytypes.update(collection.database_keytypes())
-        cursor = self.openDB.execute('SELECT * FROM ' + MTGCARDS_TABLE_NAME + ' join ' + collection.tablename + ' using (id);')
+        cursor = self.openDB.execute('SELECT * FROM ' + MTGCARDS_TABLE_NAME + ' join "' + collection.tablename + '" using (id);')
         cards = []
         for c in cursor.fetchall():
             cards.append(Card.from_db_values(c, keytypes))
