@@ -122,7 +122,6 @@ def from_card_meld(scrydict):
     card.extras.update({'all_parts': scrydict['all_parts']})
     return [card]
 
-
 def from_card_split(scrydict):
     one = Card.from_scryfall(scrydict, True)
     two = Card.from_scryfall(scrydict, True)
@@ -130,7 +129,10 @@ def from_card_split(scrydict):
     one.oracle_text = scrydict['card_faces'][0].get('oracle_text', None)
     one.type_line = scrydict['card_faces'][0].get('type_line', None)
     one.mana_cost = scrydict['card_faces'][0].get('mana_cost', None)
-    one.image_url = two.image_url = scrydict['card_faces'][0].get('image_uris', None)
+    if 'image_uris' in scrydict['card_faces'][0]:
+        one.image_url = two.image_url = scrydict['card_faces'][0].get('image_uris', None)
+    elif 'image_uris' in scrydict:
+        one.image_url = two.image_url = scrydict['image_uris'].get('normal', None)
     one.toughness = scrydict['card_faces'][0].get('toughness', None)
     one.power = scrydict['card_faces'][0].get('power', None)
     two.toughness = scrydict['card_faces'][1].get('toughness', None)
@@ -145,9 +147,6 @@ def from_card_split(scrydict):
     one.card_face = two.id
     two.card_face = one.id
     return [one, two]
-
-
-
 
 if __name__ == '__main__':
     for s in all_sets():

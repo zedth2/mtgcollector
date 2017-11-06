@@ -166,6 +166,7 @@ class MTGCollections(QtWidgets.QWidget):
         if self.setinfo.set is not None:
             logging.debug('Loading ' + str(self.setinfo.set.__dict__))
             self.databaseinfo.store.get_all_cards_from_set_external(self.setinfo.set)
+            self.click(self.databaseinfo.selectedIndexes()[0])
 
     def addpaths(self):
         items = self.databaseinfo.model.get_all_paths()
