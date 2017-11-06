@@ -1,12 +1,11 @@
+#!/usr/bin/python3
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'collection.ui'
-#
-# Created by: PyQt5 UI code generator 5.9
-#
-# WARNING! All changes made in this file will be lost!
+import logging
 
 from PyQt5 import QtCore, QtGui, QtWidgets
+
+from inventories import Collection, Deck
 
 class CollectionInfo(QtWidgets.QWidget):
     def __init__(self, parent=None, flags=0):
@@ -85,7 +84,17 @@ class CollectionInfo(QtWidgets.QWidget):
         self.lblType.setText(_translate("Form", "Type:"))
         self.btnCsvImport.setText(_translate("Form", "Import CSV"))
 
-    def collection_show(self):
+    def load_collection(self, collection):
+        if isinstance(collection, Deck):
+            self.deck_show(collection)
+        elif isinstance(collection, Collection):
+            self.collection_show(collection)
+        else:
+            logging.error('Failure on type ' + str(type(collection)))
+
+
+    def collection_show(self, collection):
+        self.collection = collection
         self.lblCsvFile.setVisible(False)
         self.txtCsvFile.setVisible(False)
 
@@ -94,11 +103,25 @@ class CollectionInfo(QtWidgets.QWidget):
 
         self.btnCsvImport.setVisible(False)
 
-    def deck_show(self):
+        self.txtName.setText(self.collection.name)
+        self.cbxPath.setCurrentText(self.collection.path)
+
+        self.lblTableName.setText('Table Name: '+self.collection.tablename)
+        self.lblType.setText('Type: ' + self.collection.type)
+
+    def deck_show(self, deck):
+        self.collection = deck
         self.lblFormat.setVisible(True)
         self.cbxFormat.setVisible(True)
 
         self.btnCsvImport.setVisible(False)
+
+        self.txtName.setText(self.collection.name)
+        self.cbxPath.setCurrentText(self.collection.path)
+        self.cbxFormat.setCurrentText(self.collection.format)
+        self.lblTableName.setText('Table Name: '+self.collection.tablename)
+        self.lblType.setText('Type: ' + self.collection.type)
+
 
     def csv_show(self):
         self.lblCsvFile.setVisible(True)

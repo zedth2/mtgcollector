@@ -64,7 +64,8 @@ class MTGCollections(QtWidgets.QWidget):
         self.mainhlyo.addWidget(self.galcsvholder)
         #self.gal.model.threadcardadds(self.getStuff())
         #self.mainhlyo.addWidget(self.gal)
-        self.gal.clicked['QModelIndex'].connect(self.clicked)
+        self.gal.selectionModel().selectionChanged.connect(self.selectChanged)
+        #self.gal.clicked['QModelIndex'].connect(self.clicked)
 
         holder = QtWidgets.QWidget()
         self.infolyv = QtWidgets.QVBoxLayout(self)
@@ -181,6 +182,9 @@ class MTGCollections(QtWidgets.QWidget):
                 logging.debug('SELECTED A SET')
         self.create_right_context().popup(self.gal.mapToGlobal(args[0]))
 
+    def selectChanged(self, new, old):
+        self.det.change_card(self.gal.item(new.indexes()[0].row(), new.indexes()[0].column()).card)
+
     def clicked(self, *args):
         #print("CLICKED", args)
         self.det.change_card(self.gal.item(args[0].row(), args[0].column()).card)
@@ -231,6 +235,10 @@ class MTGCollections(QtWidgets.QWidget):
             #self.csvimp.model.threadcardadds(cards)
             if isinstance(item.collection, Set):
                 self.setinfo.load_set(item.collection)
+            elif isinstance(item.collection, Collection):
+                self.cinfo.load_collection(item.collection)
+            else:
+                logging.error('Can not load type : '+str(type(item.collection)))
         except Exception as ex:
             print('EXCEPTION ', ex)
 
